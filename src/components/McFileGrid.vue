@@ -111,14 +111,14 @@ export default defineComponent({
         // @ts-ignore
         const childProcess = this.spawn(this.pathToFfmpeg, ['-y', '-ss', '00:01:15', '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
         
-        childProcess.on('close', (code: any) => {
+                childProcess.on('close', (code: any) => {
           // console.log("created the thumbnail: " + thumbnailFileName);
           resolve(this.path.join('src/temp/' + thumbnailFileName));
         });
         
         childProcess.stderr.on('data', (data: any) => {
           // uncomment to log ffmpeg data to console
-          // reject(new Error(`Error generating thumbnail: ${data}`));
+          // console.log(`FFMpeg stderr: ${data}`);
         });
       });
     },

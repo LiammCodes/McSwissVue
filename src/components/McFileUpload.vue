@@ -1,6 +1,6 @@
 <template>
  <div class="h-full w-full flex items-start justify-center mt-20">
-    <label class="flex justify-center items-center w-3/4 h-2/4 px-4 transition bg-base-100 border-2 border-text border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none">
+    <label class="flex justify-center items-center w-3/4 h-1/2 px-4 transition bg-base-100 border-2 border-text border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none">
       <span class="flex items-center space-x-2">
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -16,7 +16,7 @@
           />
         </svg>
         <span class="font-medium">
-          Drop files to {{ action }}, or
+          Drop files to {{ action }}
           <span class="text-primary underline">browse</span>
         </span>
       </span>

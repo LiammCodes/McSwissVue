@@ -1,5 +1,5 @@
 <template>
-  <mc-file-upload v-if="showFileUpload" action="create segments for" @files-uploaded="handleFilesUploaded" />
+  <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
@@ -17,13 +17,11 @@
           <div v-if="selectedFile.thumbnailPath !== ''">
             <img :src="selectedFile.thumbnailPath" class="rounded-md object-cover"/>
           </div>
-          <div class="pt-5">
-            <p>Name:</p>
-            <p class="pb-3" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
-            <p>Duration:</p>
-            <p class="pb-3">{{ selectedFile.duration }}</p>
-            <p>Bitrate:</p>
-            <p>{{ selectedFile.bitrate }}</p>
+          <div class="pt-5 space-y-3 text-xs">
+            <p style="word-break: break-all;">Name: {{ selectedFile.file!.name }}</p>
+            <p>Duration: {{ selectedFile.duration }}</p>
+            <!-- <p>Size: {{ selectedFile.size }}</p> -->
+            <p>Bitrate: {{ selectedFile.bitrate }}</p>
           </div>
         </div>
       </div>
@@ -124,8 +122,8 @@ export default defineComponent({
       // @ts-ignore
       this.selectedFile = file;
       // TESTING
-      console.log(this.startTime)
-      console.log(this.endTime)
+      // console.log(this.startTime)
+      // console.log(this.endTime)
     },
 
     async setOutputDir() {
