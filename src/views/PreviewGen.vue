@@ -4,9 +4,9 @@
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
         <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="filesLoading = false">
-        <template v-slot:spacing>
-          <div class="h-full"></div>
-        </template>
+          <template v-slot:spacing>
+            <div class="h-full"></div>
+          </template>
         </mc-file-grid>
       </div>
 
@@ -25,6 +25,7 @@
               <p>Duration: <span class="float-right">{{ selectedFile.duration }}</span></p>
               <p>Size: <span class="float-right">{{ formatedFileSize(+selectedFile.size) }}</span></p>
               <p>Bitrate: <span class="float-right">{{ selectedFile.bitrate }}</span></p>
+              <!-- TODO: Add type and last modified -->
             </div>
             
           </div>
@@ -49,7 +50,7 @@
     </div>
     <div class="space-y-2 flex-grow max-w-md">
       <div class="flex justify-end items-center space-x-2">
-        <span>Output: </span><input type="text" readonly placeholder="None" class="input input-sm w-full border focus:outline-none" />
+        <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
         <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputDir">browse</label>
       </div>  
     </div>
@@ -77,9 +78,10 @@ export default defineComponent({
     const pathToFfprobe = require('ffprobe-static');
     const spawn = require('child_process').spawn;
     const ipcRenderer = require('electron').ipcRenderer;
+    const dialog = require('electron').dialog;
     const path = require('path');
 
-    return { ipcRenderer, appRootDir, appStore, spawn, pathToFfmpeg, pathToFfprobe, path }
+    return { ipcRenderer, appRootDir, appStore, dialog, spawn, pathToFfmpeg, pathToFfprobe, path }
   },
   data(){
     return {
@@ -87,7 +89,7 @@ export default defineComponent({
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       loadingMetaData: false as boolean,
-      outputFilePath: '' as string,
+      outputFilePath: 'None' as string,
       selectedFile: {
         bitrate: '' as string,
         duration: '' as string,
@@ -106,19 +108,22 @@ export default defineComponent({
     },
     endTime(newTime: any) {
       console.log(newTime)
+    },
+    outputFilePath(newPath: any) {
+      console.log(newPath)
     }
   },
-  computed: {
-    
 
-  },
   async mounted() {
     // "daisyui": "^2.51.5",
     this.appStore.setSelectedTool('Preview Generator');
 
+    // get temp path
     await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
       this.tempDir = this.path.join(result, '/src/temp');
     })
+
+    // directory selector
 
   },
   methods: {
@@ -142,9 +147,11 @@ export default defineComponent({
       // @ts-ignore
       this.selectedFile = file;
     },
-
     async setOutputDir() {
-
+      await this.ipcRenderer.invoke('dialog').then((result: string) => {
+        console.log(result)
+        this.outputFilePath = result;
+      })
     },
     generatePreviews() {
       //@ts-ignore

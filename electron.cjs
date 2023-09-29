@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Notification, ipcMain } = require('electron');
+const { app, BrowserWindow, Notification, ipcMain, dialog } = require('electron');
 const path = require('path');
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -9,8 +9,9 @@ function showNotification () {
   new Notification({ title: NOTIFICATION_TITLE, body: NOTIFICATION_BODY }).show()
 }
 
+let mainWindow;
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
@@ -21,9 +22,9 @@ function createWindow() {
   });
 
   if (isDev) {
-    win.loadURL('http://localhost:5173');
+    mainWindow.loadURL('http://localhost:5173');
   } else {
-    win.loadFile(path.join(__dirname, 'dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
 }
 
@@ -35,6 +36,28 @@ app.whenReady().then(() => {
     const result = app.getAppPath();
     return result;
   })
+
+  ipcMain.handle('dialog', async (event, method, params) => {       
+    // If the platform is 'darwin' (macOS)
+    try {
+      const file = await dialog.showOpenDialog({
+        title: 'Select a directory to output the results to.',
+        buttonLabel: 'Save',
+        properties: ['openDirectory']
+      });
+      
+      if (file.filePaths && file.filePaths.length > 0) {
+        return file.filePaths[0];
+      } else {
+        // Handle the case where the user canceled the dialog or no files were selected.
+        return null;
+      }
+    } catch (error) {
+      // Handle any errors that may occur during the dialog.
+      console.error(error);
+      throw error; // You can choose to rethrow the error or handle it as needed.
+    }
+  });
   
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
