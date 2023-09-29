@@ -1,30 +1,28 @@
 <template>
-  <div class="bg-base-200 rounded-xl p-2 flex" style="overflow-y: auto; overflow-x: hidden;">
-    <div class="col-span-3 flex flex-wrap gap-2 justify-start">
-      <div v-if="filesLoading">
-        <span class="loading loading-spinner loading-lg"></span>
-      </div>
-      <div v-else>
-        <button 
-          v-for="fileObj in fileObjects"
-          :key="fileObj.file.name"
-          class="w-32 items-center p-2 rounded-xl hover:bg-base-300 focus:outline-none focus:ring focus:ring-primary"
-          ref="fileBtns"
-          @click="handleFileSelection(fileObj)"
-        >
-          <div class="flex flex-col items-center">
-            <img 
-              class="rounded-md object-cover w-22 h-16" 
-              :src="fileObj.thumbnailPath"
-            />
-          </div>
-          <p class="text-center break-words text-xs pt-2">{{ shortenFileName(fileObj.file.name, 30) }}</p>
-        </button>
-      </div>
+  <div class="bg-base-200 rounded-xl p-2 flex h-full" style="overflow-y: auto; overflow-x: hidden;">
+    <div v-if="filesLoading" class="flex items-center justify-center h-full w-full">
+      <span class="loading loading-spinner text-primary loading-lg"></span>
+    </div>
+    <div v-else class="col-span-3 gap-2 justify-start">
+      <button 
+        v-for="fileObj in fileObjects"
+        :key="fileObj.file.name"
+        class="w-32 items-center p-2 rounded-xl hover:bg-base-300 focus:outline-none focus:ring focus:ring-primary"
+        ref="fileBtns"
+        @click="handleFileSelection(fileObj)"
+      >
+        <div class="flex flex-col items-center">
+          <img 
+            class="rounded-md object-cover w-22 h-16" 
+            :src="fileObj.thumbnailPath"
+          />
+        </div>
+        <p class="text-center break-words text-xs pt-2">{{ shortenFileName(fileObj.file.name, 30) }}</p>
+      </button>
+
     </div>
     <slot name="spacing"/>
   </div>
-  
 </template>
 
 <script lang="ts">
@@ -61,7 +59,7 @@ export default defineComponent({
     await this.buildFileObjects(this.files);
     this.handleFileSelection(this.fileObjects[0])
     this.selectFirstFile();
-    this.filesLoading = false;
+    this.filesLoaded();
   },
   methods: {
     selectFirstFile() {
@@ -69,6 +67,11 @@ export default defineComponent({
         // @ts-ignore
         this.$refs.fileBtns[0].focus();
       })
+    },
+
+    filesLoaded() {
+      this.filesLoading = false;
+      this.$emit('files-loaded', !this.filesLoading)
     },
 
     async setTempDirectory() {

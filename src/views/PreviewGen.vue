@@ -3,24 +3,28 @@
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
-        <mc-file-grid :files="files" @file-selected="handleFileSelected">
+        <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="filesLoading = false">
         <template v-slot:spacing>
           <div class="h-full"></div>
         </template>
         </mc-file-grid>
       </div>
-
-      <div class="col-span-1 gap-2 bg-base-200 rounded-xl p-2">
-        <div class="gap-4 bg-base-200 m-1 rounded-xl">
+      <div class="col-span-1 gap-2 bg-base-200 rounded-xl p-2 ">
+        <div v-if="filesLoading" class="flex items-center justify-center h-full w-full">
+          <span class="loading loading-dots text-secondary loading-lg"></span>
+        </div>
+        <div v-else class="gap-4 bg-base-200 m-1 rounded-xl">
           <div v-if="selectedFile.thumbnailPath !== ''">
             <img :src="selectedFile.thumbnailPath" class="rounded-md object-cover"/>
           </div>
-          <div class="pt-5 space-y-3">
-            <p style="word-break: break-all;">Name: {{ selectedFile.file.name }}</p>
-            <p>Duration: {{ selectedFile.duration }}</p>
-            <p>Bitrate: {{ selectedFile.bitrate }}</p>
+          <div class="pt-5">
+            <p>Name:</p>
+            <p class="pb-3" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
+            <p>Duration:</p>
+            <p class="pb-3">{{ selectedFile.duration }}</p>
+            <p>Bitrate:</p>
+            <p>{{ selectedFile.bitrate }}</p>
           </div>
-          
         </div>
       </div>
     </div>
@@ -78,6 +82,7 @@ export default defineComponent({
     return {
       endTime: '' as string,
       files: ref<File[]>([]),
+      filesLoading: true as boolean,
       loadingMetaData: false as boolean,
       outputFilePath: '' as string,
       selectedFile: {
