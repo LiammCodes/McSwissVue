@@ -26,7 +26,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType, Ref } from "vue";
+import { defineComponent, PropType } from "vue";
 import { DocumentIcon } from '@heroicons/vue/24/outline';
 
 export default defineComponent({
@@ -93,6 +93,7 @@ export default defineComponent({
             duration: metadata.duration as string,
             file: file as File,
             thumbnailPath: thumbnailPath as string,
+            size: metadata.size as string,
           };
         });
 
@@ -111,7 +112,7 @@ export default defineComponent({
         // @ts-ignore
         const childProcess = this.spawn(this.pathToFfmpeg, ['-y', '-ss', '00:01:15', '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
         
-                childProcess.on('close', (code: any) => {
+        childProcess.on('close', (code: any) => {
           // console.log("created the thumbnail: " + thumbnailFileName);
           resolve(this.path.join('src/temp/' + thumbnailFileName));
         });
@@ -128,15 +129,26 @@ export default defineComponent({
         const result = {
           bitrate: '' as string,
           duration: '' as string,
+          size: '' as string,
         };
         // @ts-ignore
-        const childProcess = this.spawn(this.pathToFfprobe.path, ['-i', file.path + '']);
-
+        const childProcess = this.spawn(this.pathToFfprobe.path, [
+          '-i', 
+          file.path + '', 
+          '-loglevel', 
+          'level',
+          '-show_entries',
+          'format=size', // Request to show the file size.
+          '-of',
+          'default=noprint_wrappers=1:nokey=1', // Output format.
+        ]);
         childProcess.stdout.on('data', (data: any) => {
-          console.log(`FFProbe stdout: ${data}`);
+          // console.log(`FFProbe stdout: ${data}`);
+          result.size = data;
         });
 
         childProcess.stderr.on('data', (data: any) => {
+          // console.log(`FFProbe sterr: ${data}`);
           const stderrData = data.toString();
           const durationRegex = /Duration: (\d+:\d+:\d+)/;
           const bitrateRegex = /bitrate: (\d+) kb\/s/;
@@ -150,6 +162,7 @@ export default defineComponent({
           if (bitrateMatch && bitrateMatch[1]) {
             result.bitrate = bitrateMatch[1] + ' kb/s';
           }
+
         });
 
         childProcess.on('close', (code: any) => {

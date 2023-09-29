@@ -9,19 +9,24 @@
         </template>
         </mc-file-grid>
       </div>
-      <div class="col-span-1 gap-2 bg-base-200 rounded-xl p-2 ">
+
+      <!-- METADATA COL -->
+      <div class="col-span-1 gap-2 bg-base-200 rounded-xl">
         <div v-if="filesLoading" class="flex items-center justify-center h-full w-full">
           <span class="loading loading-dots text-secondary loading-lg"></span>
         </div>
-        <div v-else class="gap-4 bg-base-200 m-1 rounded-xl">
+        <div v-else class="gap-4 bg-base-200 rounded-t-xl">
           <div v-if="selectedFile.thumbnailPath !== ''">
-            <img :src="selectedFile.thumbnailPath" class="rounded-md object-cover"/>
+            <img :src="selectedFile.thumbnailPath" class="rounded-t-xl object-cover"/>
           </div>
-          <div class="pt-5 space-y-3 text-xs">
-            <p style="word-break: break-all;">Name: {{ selectedFile.file!.name }}</p>
-            <p>Duration: {{ selectedFile.duration }}</p>
-            <!-- <p>Size: {{ selectedFile.size }}</p> -->
-            <p>Bitrate: {{ selectedFile.bitrate }}</p>
+          <div class="p-3">
+            <p class="text-lg font-bold" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
+            <div class="bg-base-100 rounded-md text-sm p-2 space-y-3 mt-3">
+              <p>Duration: <span class="float-right">{{ selectedFile.duration }}</span></p>
+              <p>Size: <span class="float-right">{{ formatedFileSize(+selectedFile.size) }}</span></p>
+              <p>Bitrate: <span class="float-right">{{ selectedFile.bitrate }}</span></p>
+            </div>
+            
           </div>
         </div>
       </div>
@@ -103,6 +108,10 @@ export default defineComponent({
       console.log(newTime)
     }
   },
+  computed: {
+    
+
+  },
   async mounted() {
     // "daisyui": "^2.51.5",
     this.appStore.setSelectedTool('Preview Generator');
@@ -113,17 +122,25 @@ export default defineComponent({
 
   },
   methods: {
+    formatedFileSize(bytes: number) {
+      if (bytes < 1024) {
+        return bytes + ' B';
+      } else if (bytes < 1024 * 1024) {
+        return (bytes / 1024).toFixed(2) + ' KB';
+      } else if (bytes < 1024 * 1024 * 1024) {
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+      } else {
+        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+      }
+    },
     handleFilesUploaded(uploadedFiles: File[]){
       this.files.push(...uploadedFiles);
       this.showFileUpload = false;
       this.selectedFile.file = this.files[0];
     },
-    async handleFileSelected(file: object) {
+    handleFileSelected(file: object) {
       // @ts-ignore
       this.selectedFile = file;
-      // TESTING
-      // console.log(this.startTime)
-      // console.log(this.endTime)
     },
 
     async setOutputDir() {

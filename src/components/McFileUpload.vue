@@ -45,24 +45,6 @@ export default defineComponent({
         this.$emit("files-uploaded", files);
       }
     },
-    generateThumbnail(videoFile: any) {
-      return new Promise((resolve) => {
-        const video = document.createElement('video');
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = 160;
-        canvas.height = 90;
-        video.src = URL.createObjectURL(videoFile);
-        video.addEventListener('loadeddata', () => {
-          video.currentTime = 0;
-        });
-        video.addEventListener('seeked', () => {
-          ctx!.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
-          resolve(thumbnail);
-        });
-      });
-    },
   }
 })
 </script>
