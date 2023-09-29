@@ -1,9 +1,9 @@
 <template>
   <div class="drawer">
-    <input id="my-drawer" type="checkbox" v-model="drawerOpen" class="drawer-toggle" /> 
+    <input id="my-drawer" type="checkbox" v-model="drawerOpen" class="d-toggle" /> 
     <div class="drawer-content flex flex-col p-2">
       <!-- Navbar -->
-      <div class="navbar bg-base-300 rounded-box">
+      <div class="navbar bg-primary rounded-box text-primary-content">
         <div class="flex-none">
           <label for="my-drawer" class="btn btn-square btn-ghost">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-6 h-6 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -16,21 +16,16 @@
           <div class="flex items-stretch">
             <div class="dropdown dropdown-end">
               <label tabindex="0" class="btn btn-ghost rounded-btn">
-                <swatch-icon class="h-5 w-5 text-primary mr-2"></swatch-icon>
+                <swatch-icon class="h-5 w-5 mr-2"></swatch-icon>
                 <p>Theme</p>
                 <chevron-down-icon class="h-5 w-5 ml-1"></chevron-down-icon>
               </label>
-              <ul tabindex="0" class="menu dropdown-content p-2 shadow bg-base-200 rounded-box w-52 mt-4">
+              <ul tabindex="0" class="menu dropdown-content p-2 shadow bg-primary rounded-box w-52 mt-4">
                 <li @click="appStore.setTheme('dark')"><a>Dark</a></li> 
                 <li @click="appStore.setTheme('light')"><a>Light</a></li>
                 <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li> 
                 <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 
                 <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li>
-                <!-- <li @click="appStore.setTheme('dark')"><a>Dark</a></li> 
-                <li @click="appStore.setTheme('light')"><a>Light</a></li>
-                <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li> 
-                <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 
-                <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li> -->
               </ul>
             </div>
           </div>
@@ -41,12 +36,12 @@
     </div> 
     <div class="drawer-side">
       <label for="my-drawer" class="drawer-overlay"></label> 
-      <ul class="menu p-4 w-80 bg-base-100 justify-between">
+      <ul class="menu p-4 w-80 min-h-full bg-base-100 justify-between">
         <!-- Sidebar content here -->
         <div class="space-y-1">
           <li class="pb-10">
             <a @click="goToWebsite" target="_blank" class="bg-base-100">
-              <img v-if="appStore.themeType === 'dark'" src="../assets/img/mcintyreIconDark.png" style="max-width: 45px; padding-right: 5px;" />
+              <img v-if="appStore.themeType === 'dark'" src="../assets/img/mcintyreIconDark.png" class="thumbnail" style="max-width: 45px; padding-right: 5px;" />
               <img v-else src="../assets/img/mcintyreIconLight.png" style="max-width: 45px; padding-right: 5px;" />
               <p class="text-lg font-bold">McSwiss</p>
             </a>
@@ -133,6 +128,9 @@ export default defineComponent({
     },
   },
   methods: {
+    handleDrawerBtn() {
+      console.log('ive been clicked: ' + this.drawerOpen)
+    },
     goToWebsite() {
       // @ts-ignore
       require('electron').shell.openExternal("https://mcintyre.ca/");
@@ -152,3 +150,82 @@ export default defineComponent({
   }
 });
 </script>
+<style>
+
+/*  
+  Had to add this manually due to a bug, 
+  in the future id like to remove by replacing
+  all usages of d-toggle in the template
+  with 'drawer-toggle' 
+
+  BEGINNING OF BUG FIX:
+*/
+.d-toggle {
+  position: fixed;
+  height: 0px;
+  width: 0px;
+  appearance: none;
+  opacity: 0;
+}
+.d-toggle:checked ~ .drawer-side {
+  pointer-events: auto;
+  visibility: visible;
+}
+.d-toggle:checked ~ .drawer-side > *:not(.drawer-overlay) {
+  transform: translateX(0%);
+}
+.drawer-end .d-toggle ~ .drawer-content {
+  grid-column-start: 1;
+}
+.drawer-end .d-toggle ~ .drawer-side {
+  grid-column-start: 2;
+  justify-items: end;
+}
+.drawer-end .d-toggle ~ .drawer-side > *:not(.drawer-overlay) {
+  transform: translateX(100%);
+}
+.drawer-end .d-toggle:checked ~ .drawer-side > *:not(.drawer-overlay) {
+  transform: translateX(0%);
+}
+.d-toggle:checked ~ .drawer-side > .drawer-overlay {
+  background-color: hsl(0 0% 0%/0.4);
+}
+.d-toggle:focus-visible ~ .drawer-content label.drawer-button {
+  outline-style: solid;
+  outline-width: 2px;
+  outline-offset: 2px;
+}
+.drawer-open > .d-toggle {
+  display: none;
+}
+.drawer-open > .d-toggle ~ .drawer-side {
+  pointer-events: auto;
+  visibility: visible;
+  position: sticky;
+  display: block;
+  width: auto;
+  overscroll-behavior: auto;
+}
+.drawer-open > .d-toggle ~ .drawer-side > *:not(.drawer-overlay) {
+  transform: translateX(0%);
+}
+[dir="rtl"] .drawer-open > .d-toggle ~ .drawer-side > *:not(.drawer-overlay) {
+  transform: translateX(0%);
+}
+.drawer-open > .d-toggle:checked ~ .drawer-side {
+  pointer-events: auto;
+  visibility: visible;
+}
+.drawer-open > .d-toggle ~ .drawer-side > .drawer-overlay {
+  cursor: default;
+ background-color: transparent;
+}
+/* END OF BUG FIX */
+
+.thumbnail {
+  image-rendering: pixelated;
+}
+
+
+
+</style>

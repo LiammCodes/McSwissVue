@@ -2,7 +2,7 @@
   <div :data-theme="appStore.theme">
     <mc-drawer>
       <template v-slot:tool-view>
-        <router-view class="p-4"/>
+        <router-view/>
       </template>
     </mc-drawer>
   </div>
