@@ -16,8 +16,8 @@
           />
         </svg>
         <span class="font-medium">
-          Drop files to {{ action }}
-          <span class="text-primary underline">browse</span>
+          Drop files to {{ action }} or
+          <span class="text-primary underline"> browse</span>
         </span>
       </span>
       <input type="file" name="file_upload" class="hidden" @change="handleFileUpload" multiple>

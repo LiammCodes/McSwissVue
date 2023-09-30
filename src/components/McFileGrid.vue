@@ -19,7 +19,6 @@
         </div>
         <p class="text-center break-words text-xs pt-2">{{ shortenFileName(fileObj.file.name, 30) }}</p>
       </button>
-
     </div>
     <slot name="spacing"/>
   </div>
@@ -27,7 +26,6 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
-import { DocumentIcon } from '@heroicons/vue/24/outline';
 
 export default defineComponent({
   props: {
@@ -36,7 +34,7 @@ export default defineComponent({
       required: true,
     },
   },
-  components: { DocumentIcon },
+
   setup() {
     const ipcRenderer = require('electron').ipcRenderer;
     const path = require('path');
@@ -47,6 +45,7 @@ export default defineComponent({
 
     return { ipcRenderer, path, pathToFfmpeg, pathToFfprobe, spawn, fs }
   },
+
   data() {
     return {
       fileObjects: [] as object[],
@@ -54,13 +53,16 @@ export default defineComponent({
       tempPath: '' as string,
     }
   },
+
   async mounted() {
     await this.setTempDirectory();
     await this.buildFileObjects(this.files);
     this.handleFileSelection(this.fileObjects[0])
     this.selectFirstFile();
     this.filesLoaded();
+    console.log(this.fileObjects)
   },
+
   methods: {
     selectFirstFile() {
       this.$nextTick(() => {
@@ -86,15 +88,17 @@ export default defineComponent({
         // Use Promise.all to process all files concurrently
         const fileProcessingPromises = files.map(async (file: File) => {
           const metadata = await this.getMetaData(file);
-          const thumbnailPath = await this.generateThumbnail(file);
+          const thumbnailPath = await this.generateThumbnail(file, this.calculateTimeMidpoint(metadata.duration));
 
-          return {
+          const fileObj = {
             bitrate: metadata.bitrate as string,
             duration: metadata.duration as string,
             file: file as File,
             thumbnailPath: thumbnailPath as string,
             size: metadata.size as string,
-          };
+          }
+
+          return fileObj;
         });
 
         const fileObjects = await Promise.all(fileProcessingPromises)
@@ -106,11 +110,11 @@ export default defineComponent({
       }
     },
 
-    async generateThumbnail(file: File): Promise<string> {
+    async generateThumbnail(file: File, cutTime: string): Promise<string> {
       return new Promise<string>((resolve, reject) => {
         const thumbnailFileName = this.path.basename(file.name, this.path.extname(file.name)) + ".png";
         // @ts-ignore
-        const childProcess = this.spawn(this.pathToFfmpeg, ['-y', '-ss', '00:01:15', '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
+        const childProcess = this.spawn(this.pathToFfmpeg, ['-y', '-ss', cutTime, '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
         
         childProcess.on('close', (code: any) => {
           // console.log("created the thumbnail: " + thumbnailFileName);
@@ -195,6 +199,20 @@ export default defineComponent({
       const shortenedFilename = truncatedBaseName + extension;
 
       return shortenedFilename;
+    },
+
+    calculateTimeMidpoint(time: string) {
+      // Split the input string into hours, minutes, and seconds
+      let [hours, minutes, seconds] = time.split(":").map(Number);
+
+      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+      const cutPointInSeconds = Math.floor(totalSeconds/2)
+
+      hours = Math.floor(cutPointInSeconds / 3600);
+      minutes = Math.floor((cutPointInSeconds % 3600) / 60);
+      seconds = cutPointInSeconds % 60;
+
+      return `${hours}:${minutes}:${seconds}`;
     },
 
     handleFileSelection(fileObj: object) {

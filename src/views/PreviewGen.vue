@@ -20,7 +20,7 @@
             <img :src="selectedFile.thumbnailPath" class="rounded-t-xl object-cover"/>
           </div>
           <div class="p-3">
-            <p class="text-lg font-bold" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
+            <p class="text-base font-bold" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
             <div class="bg-base-100 rounded-md text-sm p-2 space-y-3 mt-3">
               <p>Duration: <span class="float-right">{{ selectedFile.duration }}</span></p>
               <p>Size: <span class="float-right">{{ formatedFileSize(+selectedFile.size) }}</span></p>
@@ -51,7 +51,7 @@
     <div class="space-y-2 flex-grow max-w-md">
       <div class="flex justify-end items-center space-x-2">
         <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
-        <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputDir">browse</label>
+        <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
       </div>  
     </div>
     <label class="btn btn-primary" @click="generatePreviews">
@@ -63,6 +63,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
+import { useToast } from "vue-toastification";
 import { VideoCameraIcon, PhotoIcon } from '@heroicons/vue/24/outline';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
@@ -80,16 +81,17 @@ export default defineComponent({
     const ipcRenderer = require('electron').ipcRenderer;
     const dialog = require('electron').dialog;
     const path = require('path');
-
-    return { ipcRenderer, appRootDir, appStore, dialog, spawn, pathToFfmpeg, pathToFfprobe, path }
+    const toast = useToast();
+    return { ipcRenderer, appRootDir, appStore, dialog, spawn, pathToFfmpeg, pathToFfprobe, path, toast }
   },
   data(){
     return {
-      endTime: '' as string,
+      endTime: '00:00:00' as string,
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       loadingMetaData: false as boolean,
       outputFilePath: 'None' as string,
+      outputFormat: '.mp4' as string,
       selectedFile: {
         bitrate: '' as string,
         duration: '' as string,
@@ -97,7 +99,7 @@ export default defineComponent({
         thumbnailPath: '' as string
       },
       showFileUpload: true as boolean,
-      startTime: '' as string,
+      startTime: '00:00:00' as string,
       tempDir: '' as string,
       appPath: '' as string
     }
@@ -113,18 +115,12 @@ export default defineComponent({
       console.log(newPath)
     }
   },
-
   async mounted() {
-    // "daisyui": "^2.51.5",
     this.appStore.setSelectedTool('Preview Generator');
-
     // get temp path
     await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
       this.tempDir = this.path.join(result, '/src/temp');
     })
-
-    // directory selector
-
   },
   methods: {
     formatedFileSize(bytes: number) {
@@ -147,24 +143,54 @@ export default defineComponent({
       // @ts-ignore
       this.selectedFile = file;
     },
-    async setOutputDir() {
+    async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
         console.log(result)
         this.outputFilePath = result;
       })
     },
+    removeExtension(filename: string) {
+      // Split the filename into base name and extension
+      const dotIndex = filename.lastIndexOf('.');
+      const baseName = filename.slice(0, dotIndex);
+      const extension = filename.slice(dotIndex);
+
+      return baseName;
+    },
     generatePreviews() {
-      //@ts-ignore
-      const childProcess = this.spawn(this.pathToFfmpeg, ['-ss', this.startTime, '-y', '-i', file.path, '-codec', 'copy', '-t', this.endTime, path.join(this.tempDir, 'output.png')])
-      childProcess.stdout.on('data', (data: any) => {
-        console.log(`FFMpeg stdout: ${data}`);
-      });
-      childProcess.on('close', (code: any) => {
-        new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` })
-      });
-      childProcess.stderr.on( 'data', (data: any) => {
-        console.log( `stderr: ${data}` );
-      });
+      console.log(this.startTime)
+      console.log(this.endTime)
+      if (this.endTime === '00:00:00') {
+        this.toast("My toast content", {
+          timeout: 2000
+        });
+      } else {
+        this.files.forEach((file:File) => {
+          const ffmpegCommand = [
+            '-i', file.path,
+            '-ss', this.startTime,
+            '-to', this.endTime,
+            '-b:v', '3000k',
+            this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFormat)
+          ]
+          console.log("COMMAND:")
+          console.log(ffmpegCommand)
+
+          //@ts-ignore
+          // const childProcess = this.spawn(this.pathToFfmpeg, ['-ss', this.startTime, '-y', '-i', file.path, '-codec', 'copy', '-t', this.endTime, this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFormat)])
+          const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand)
+          childProcess.stdout.on('data', (data: any) => {
+            console.log(`FFMpeg stdout: ${data}`);
+          });
+          childProcess.on('close', (code: any) => {
+            new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` })
+          });
+          childProcess.stderr.on( 'data', (data: any) => {
+            console.log( `stderr: ${data}` );
+          });
+        })
+      }
+      
     },
   }
 });
