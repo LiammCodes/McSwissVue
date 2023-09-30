@@ -26,6 +26,10 @@
                 <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li> 
                 <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 
                 <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li>
+                <li @click="appStore.setTheme('night')"><a>Night</a></li>
+                <li @click="appStore.setTheme('lofi')"><a>Lofi</a></li>
+                <li @click="appStore.setTheme('winter')"><a>Winter</a></li>
+                <li @click="appStore.setTheme('dracula')"><a>Dracula</a></li>
               </ul>
             </div>
           </div>

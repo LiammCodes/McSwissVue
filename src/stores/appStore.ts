@@ -19,7 +19,7 @@ export const useAppStore = defineStore({
   }),
   getters: {
     themeType(){
-      if (this.theme === 'dark' || this.theme === 'forest' || this.theme === 'synthwave' || this.theme === 'black'){
+      if (this.theme === 'dark' || this.theme === 'forest' || this.theme === 'synthwave' || this.theme === 'black' || this.theme === 'night'){
         return 'dark';
       } else {
         return 'light';
