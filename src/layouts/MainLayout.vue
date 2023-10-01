@@ -1,5 +1,5 @@
 <template>
-  <div :data-theme="appStore.theme">
+  <div id="themed-app" :data-theme="appStore.theme">
     <mc-drawer>
       <template v-slot:tool-view>
         <router-view/>

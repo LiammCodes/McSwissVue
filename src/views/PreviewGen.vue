@@ -1,6 +1,7 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
+    <Toast :message="'Please enter a valid start and end time'" kind="alert-error" :showToast="showToast" @close="showToast = false"  />
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
         <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="filesLoading = false">
@@ -63,16 +64,16 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
-import { useToast } from "vue-toastification";
-import { VideoCameraIcon, PhotoIcon } from '@heroicons/vue/24/outline';
+import Toast from '../components/Toast.vue';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
 import TimeInput from '../components/TimeInput.vue';
 
 export default defineComponent({
-  components: { McFileUpload, McFileGrid, TimeInput, VideoCameraIcon, PhotoIcon },
+  components: { McFileUpload, McFileGrid, TimeInput, Toast },
   name: 'PreviewGen',
   setup() {
+    // const toasted = require('vue-toasted');
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
     const pathToFfmpeg = require('ffmpeg-static');
@@ -81,8 +82,7 @@ export default defineComponent({
     const ipcRenderer = require('electron').ipcRenderer;
     const dialog = require('electron').dialog;
     const path = require('path');
-    const toast = useToast();
-    return { ipcRenderer, appRootDir, appStore, dialog, spawn, pathToFfmpeg, pathToFfprobe, path, toast }
+    return { ipcRenderer, appRootDir, appStore, dialog, spawn, pathToFfmpeg, pathToFfprobe, path }
   },
   data(){
     return {
@@ -99,8 +99,13 @@ export default defineComponent({
         thumbnailPath: '' as string
       },
       showFileUpload: true as boolean,
+      showToast: false,
       startTime: '00:00:00' as string,
       tempDir: '' as string,
+      toast: {
+        message: '' as string,
+        kind: '' as string,
+      },
       appPath: '' as string
     }
   },
@@ -116,6 +121,7 @@ export default defineComponent({
     }
   },
   async mounted() {
+    
     this.appStore.setSelectedTool('Preview Generator');
     // get temp path
     await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
@@ -158,12 +164,11 @@ export default defineComponent({
       return baseName;
     },
     generatePreviews() {
+      this.showToast = !this.showToast;
       console.log(this.startTime)
       console.log(this.endTime)
       if (this.endTime === '00:00:00') {
-        this.toast("My toast content", {
-          timeout: 2000
-        });
+        console.log('toast');
       } else {
         this.files.forEach((file:File) => {
           const ffmpegCommand = [
@@ -195,3 +200,6 @@ export default defineComponent({
   }
 });
 </script>
+<style>
+
+</style>

@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Notification, ipcMain, dialog } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -26,6 +27,20 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
+}
+
+function clearTempFiles() {
+  const directory = "src/temp/";
+
+  fs.readdir(directory, (err, files) => {
+    if (err) throw err;
+
+    for (const file of files) {
+      fs.unlink(path.join(directory, file), (err) => {
+        if (err) throw err;
+      });
+    }
+  });
 }
 
 app.whenReady().then(() => {
@@ -64,10 +79,19 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+
 }).then(showNotification);
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // if (process.platform !== 'darwin') {
+  //   fs.unlink(directoryPath + fileName, (err) => {
+  //     if (err) {
+  //         throw err;
+  //     }
+  //     console.log("Delete File successfully.");
+  //   });
+  //   app.quit();
+  // }
+  clearTempFiles();
+  app.quit();
 });

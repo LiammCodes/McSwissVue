@@ -24,12 +24,12 @@
                 <li @click="appStore.setTheme('dark')"><a>Dark</a></li> 
                 <li @click="appStore.setTheme('light')"><a>Light</a></li>
                 <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li> 
-                <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 
-                <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li>
-                <li @click="appStore.setTheme('night')"><a>Night</a></li>
-                <li @click="appStore.setTheme('lofi')"><a>Lofi</a></li>
-                <li @click="appStore.setTheme('winter')"><a>Winter</a></li>
                 <li @click="appStore.setTheme('dracula')"><a>Dracula</a></li>
+                <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 
+                <li @click="appStore.setTheme('lofi')"><a>Lofi</a></li>
+                <li @click="appStore.setTheme('night')"><a>Night</a></li>
+                <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li>
+                <li @click="appStore.setTheme('winter')"><a>Winter</a></li>
               </ul>
             </div>
           </div>
@@ -155,7 +155,6 @@ export default defineComponent({
 });
 </script>
 <style>
-
 /*  
   Had to add this manually due to a bug, 
   in the future id like to remove by replacing
