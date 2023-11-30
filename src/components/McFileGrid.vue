@@ -73,7 +73,7 @@ export default defineComponent({
 
     filesLoaded() {
       this.filesLoading = false;
-      this.$emit('files-loaded', !this.filesLoading)
+      this.$emit('files-loaded', this.fileObjects)
     },
 
     async setTempDirectory() {

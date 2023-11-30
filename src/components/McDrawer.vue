@@ -23,6 +23,7 @@
               <ul tabindex="0" class="menu dropdown-content p-2 shadow bg-primary rounded-box w-52 mt-4">
                 <li @click="appStore.setTheme('dark')"><a>Dark</a></li> 
                 <li @click="appStore.setTheme('light')"><a>Light</a></li>
+                <li @click="appStore.setTheme('aqua')"><a>Aqua</a></li>
                 <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li> 
                 <li @click="appStore.setTheme('dracula')"><a>Dracula</a></li>
                 <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 

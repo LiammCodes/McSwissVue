@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const isDev = process.env.NODE_ENV !== 'production';
 
-const NOTIFICATION_TITLE = 'Basic Notification'
-const NOTIFICATION_BODY = 'Notification from the Main process'
+const NOTIFICATION_TITLE = 'Basic Notification';
+const NOTIFICATION_BODY = 'Notification from the Main process';
 
 function showNotification () {
   new Notification({ title: NOTIFICATION_TITLE, body: NOTIFICATION_BODY }).show()

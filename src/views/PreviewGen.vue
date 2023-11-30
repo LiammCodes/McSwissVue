@@ -1,10 +1,10 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
-    <Toast :message="'Please enter a valid start and end time'" kind="alert-error" :showToast="showToast" @close="showToast = false"  />
+    <Toast :message="errorMessage" kind="alert-error" :showToast="showToast" @close="showToast = false" :timeout="3000" />
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
-        <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="filesLoading = false">
+        <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
           <template v-slot:spacing>
             <div class="h-full"></div>
           </template>
@@ -87,6 +87,7 @@ export default defineComponent({
   data(){
     return {
       endTime: '00:00:00' as string,
+      errorMessage: '' as string,
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       loadingMetaData: false as boolean,
@@ -98,6 +99,7 @@ export default defineComponent({
         file: null as null | File,
         thumbnailPath: '' as string
       },
+      shortestDuration: null as null | number,
       showFileUpload: true as boolean,
       showToast: false,
       startTime: '00:00:00' as string,
@@ -121,7 +123,6 @@ export default defineComponent({
     }
   },
   async mounted() {
-    
     this.appStore.setSelectedTool('Preview Generator');
     // get temp path
     await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
@@ -149,6 +150,25 @@ export default defineComponent({
       // @ts-ignore
       this.selectedFile = file;
     },
+    handleFilesLoaded(fileObjects: object[]) {
+      this.filesLoading = false
+      // get shortest video durration
+      // could probably be more efficient lol
+      fileObjects.forEach((fileObj: any) => {
+        if (this.shortestDuration === null) {
+          this.shortestDuration = this.getSeconds(fileObj.duration);
+        } else if (this.getSeconds(fileObj.duration) < this.shortestDuration) {
+          this.shortestDuration = this.getSeconds(fileObj.duration);
+        }
+      })
+    },
+    getSeconds(time: string){
+      // Split the input string into hours, minutes, and seconds
+      let [hours, minutes, seconds] = time.split(":").map(Number);
+
+      const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+      return totalSeconds;
+    },
     async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
         console.log(result)
@@ -163,26 +183,36 @@ export default defineComponent({
 
       return baseName;
     },
-    generatePreviews() {
-      this.showToast = !this.showToast;
-      console.log(this.startTime)
-      console.log(this.endTime)
-      if (this.endTime === '00:00:00') {
-        console.log('toast');
+    errorsFlagged(): boolean {
+      const clipDuration = this.getSeconds(this.endTime) - this.getSeconds(this.startTime);
+      if (this.endTime === '00:00:00' || this.getSeconds(this.startTime) > this.getSeconds(this.endTime) 
+          || clipDuration > this.shortestDuration!) {
+        this.errorMessage = 'Please enter a valid start and end time';
+        this.showToast = !this.showToast;
+        return true;
+      } else if (this.outputFilePath === 'None') {
+        this.errorMessage = 'Please enter a valid output path';
+        this.showToast = !this.showToast;
+        return true;
       } else {
+        return false;
+      }
+    },
+    generatePreviews() {
+      if (!this.errorsFlagged()) {
         this.files.forEach((file:File) => {
           const ffmpegCommand = [
             '-i', file.path,
             '-ss', this.startTime,
             '-to', this.endTime,
             '-b:v', '3000k',
+            '-progress', 'pipe:1',
             this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFormat)
           ]
           console.log("COMMAND:")
           console.log(ffmpegCommand)
 
           //@ts-ignore
-          // const childProcess = this.spawn(this.pathToFfmpeg, ['-ss', this.startTime, '-y', '-i', file.path, '-codec', 'copy', '-t', this.endTime, this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFormat)])
           const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand)
           childProcess.stdout.on('data', (data: any) => {
             console.log(`FFMpeg stdout: ${data}`);
@@ -191,11 +221,10 @@ export default defineComponent({
             new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` })
           });
           childProcess.stderr.on( 'data', (data: any) => {
-            console.log( `stderr: ${data}` );
+            // console.log( `stderr: ${data}` );
           });
         })
       }
-      
     },
   }
 });
