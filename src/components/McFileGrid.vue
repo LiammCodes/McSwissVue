@@ -93,7 +93,7 @@ export default defineComponent({
           const fileObj = {
             bitrate: metadata.bitrate as string,
             duration: metadata.duration as string,
-            file: file as File,
+            file: file,
             thumbnailPath: thumbnailPath as string,
             size: metadata.size as string,
           }
@@ -147,12 +147,12 @@ export default defineComponent({
           'default=noprint_wrappers=1:nokey=1', // Output format.
         ]);
         childProcess.stdout.on('data', (data: any) => {
-          // console.log(`FFProbe stdout: ${data}`);
+          console.log(`FFProbe stdout: ${data}`);
           result.size = data;
         });
 
         childProcess.stderr.on('data', (data: any) => {
-          // console.log(`FFProbe sterr: ${data}`);
+          console.log(`FFProbe sterr: ${data}`);
           const stderrData = data.toString();
           const durationRegex = /Duration: (\d+:\d+:\d+)/;
           const bitrateRegex = /bitrate: (\d+) kb\/s/;
@@ -166,7 +166,6 @@ export default defineComponent({
           if (bitrateMatch && bitrateMatch[1]) {
             result.bitrate = bitrateMatch[1] + ' kb/s';
           }
-
         });
 
         childProcess.on('close', (code: any) => {
@@ -178,6 +177,12 @@ export default defineComponent({
         });
       });
     },
+
+    // getProgress(currentTime: string) {
+    //   const currentSeconds = this.getSeconds(currentTime);
+    //   const totalSeconds = this.
+    //   return (currentSeconds / totalSeconds) * 100;
+    // },
 
     shortenFileName(filename: string, maxLength: number): string {
       if (filename.length <= maxLength) {
@@ -201,18 +206,26 @@ export default defineComponent({
       return shortenedFilename;
     },
 
-    calculateTimeMidpoint(time: string) {
+    getSeconds(time: string): number {
       // Split the input string into hours, minutes, and seconds
       let [hours, minutes, seconds] = time.split(":").map(Number);
-
       const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-      const cutPointInSeconds = Math.floor(totalSeconds/2)
+      return totalSeconds;
+    },
 
-      hours = Math.floor(cutPointInSeconds / 3600);
-      minutes = Math.floor((cutPointInSeconds % 3600) / 60);
-      seconds = cutPointInSeconds % 60;
+    secondsToString(secondsInput: number) {
+      let hours = Math.floor(secondsInput / 3600);
+      let minutes = Math.floor((secondsInput % 3600) / 60);
+      let seconds = secondsInput % 60;
 
       return `${hours}:${minutes}:${seconds}`;
+    },
+
+    calculateTimeMidpoint(time: string) {
+      const totalSeconds = this.getSeconds(time);
+      const cutPointInSeconds = Math.floor(totalSeconds/2);
+
+      return this.secondsToString(cutPointInSeconds);
     },
 
     handleFileSelection(fileObj: object) {
