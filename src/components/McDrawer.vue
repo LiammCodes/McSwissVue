@@ -90,9 +90,9 @@ import { Tool } from '../types/Types';
 export default defineComponent({
   name: 'McDrawer',
   components: {
+    AdjustmentsHorizontalIcon,
     ChevronDownIcon,
     SwatchIcon,
-    AdjustmentsHorizontalIcon
   },
   emits: ["theme-change"],
   setup() {

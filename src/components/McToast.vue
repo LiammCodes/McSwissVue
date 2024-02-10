@@ -1,5 +1,5 @@
 <template>
-  <Transition name="slide-fade" class="pt-6">
+  <Transition name="slide-fade" class="pt-6 z-50">
     <div v-if="showToast" class="toast toast-top toast-right">
       <div :class="['alert', 'max-w-sm', toast.kind, 'flex justify-between items-center toast-content']">
         <span>{{ toast.message }}</span>
@@ -24,26 +24,10 @@ export default defineComponent({
       type: Object as PropType<Toast>,
       required: true,
     },
-    // message: {
-    //   type: String as PropType<string>,
-    //   required: true,
-    // },
-    // kind: {
-    //   type: String as PropType<string>,
-    //   required: true,
-    // },
     showToast: {
       type: Boolean as PropType<boolean>,
       required: true,
     },
-    // timeout: {
-    //   type: Number as PropType<number>,
-    //   required: false,
-    // },
-    // toastData: {
-    //   type: Object as PropType<Object>,
-    //   required: true
-    // }
   },
   methods: {
     closeToast() {

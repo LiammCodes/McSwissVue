@@ -5,3 +5,10 @@ export type Toast = {
   kind: string,
   timeout: number
 }
+
+export type FileData = {
+  bitrate: string,
+  duration: string,
+  file: null | File,
+  thumbnailPath: string
+}

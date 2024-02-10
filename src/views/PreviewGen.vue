@@ -1,11 +1,6 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
-    <Toast 
-      :showToast="showToast" 
-      @close="showToast = false"
-      :toast="{message: errorMessage, kind: 'alert-error', timeout: 3000}"
-    />
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
         <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
@@ -17,23 +12,7 @@
 
       <!-- METADATA COL -->
       <div class="col-span-1 gap-2 bg-base-200 rounded-xl">
-        <div v-if="filesLoading" class="flex items-center justify-center h-full w-full">
-          <span class="loading loading-dots text-secondary loading-lg"></span>
-        </div>
-        <div v-else class="gap-4 bg-base-200 rounded-t-xl">
-          <div v-if="selectedFile.thumbnailPath !== ''">
-            <img :src="selectedFile.thumbnailPath" class="rounded-t-xl object-cover"/>
-          </div>
-          <div class="p-3">
-            <p class="text-base font-bold" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
-            <div class="bg-base-100 rounded-md text-sm p-2 space-y-3 mt-3">
-              <p>Duration: <span class="float-right">{{ selectedFile.duration }}</span></p>
-              <p>Size: <span class="float-right">{{ formatedFileSize(+selectedFile.size) }}</span></p>
-              <p>Bitrate: <span class="float-right">{{ selectedFile.bitrate }}</span></p>
-              <!-- TODO: Add type and last modified -->
-            </div>
-          </div>
-        </div>
+        <mc-meta-data-column :files-loading="filesLoading" :selected-file="selectedFile" />
       </div>
     </div>
   </div>
@@ -79,13 +58,16 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
-import Toast from '../components/Toast.vue';
+import { FileData } from '../types/Types';
+import { Toast } from '../types/Types';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
 import TimeInput from '../components/TimeInput.vue';
+import McMetaDataColumn from '../components/McMetaDataColumn.vue';
+
 
 export default defineComponent({
-  components: { McFileUpload, McFileGrid, TimeInput, Toast },
+  components: { McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
   name: 'PreviewGen',
   setup() {
     const appRootDir = require('app-root-dir').get();
@@ -104,76 +86,82 @@ export default defineComponent({
       errorMessage: '' as string,
       files: ref<File[]>([]),
       filesLoading: true as boolean,
+      generating: false as boolean,
       loadingMetaData: false as boolean,
       outputFilePath: 'None' as string,
       outputFormat: '.mp4' as string,
+      progress: 0 as number,
       selectedFile: {
         bitrate: '' as string,
         duration: '' as string,
         file: null as null | File,
         thumbnailPath: '' as string
-      },
-      generating: false as boolean,
+      } as FileData,
       shortestDuration: null as null | number,
       showFileUpload: true as boolean,
       showToast: false,
       startTime: '00:00:00' as string,
       tempDir: '' as string,
-      toast: {
-        message: '' as string,
-        kind: '' as string,
-      },
-      appPath: '' as string,
-      progress: 0 as number,
+      errorToast: {
+        message: '',
+        kind: '',
+        timeout: 3000
+      } as Toast,
+      successToast: {
+        message: '', // gets set later based on number of previews being generated
+        kind: 'alert-success', 
+        timeout: 5000
+      } as Toast
     }
   },
   watch:{
-    startTime(newTime: any) {
-      console.log(newTime)
-    },
-    endTime(newTime: any) {
-      console.log(newTime)
-    },
-    outputFilePath(newPath: any) {
-      console.log(newPath)
-    }
+    // startTime(newTime: any) {
+    //   console.log(newTime)
+    // },
+    // endTime(newTime: any) {
+    //   console.log(newTime)
+    // },
+    // outputFilePath(newPath: any) {
+    //   console.log(newPath)
+    // }
   },
-  async mounted() {
+  emits: ['toggle-toast'],
+  mounted() {
     this.appStore.setSelectedTool('Preview Generator');
-    // get temp path
-    await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
-      this.tempDir = this.path.join(result, '/src/temp');
-    })
   },
   methods: {
-    formatedFileSize(bytes: number) {
-      if (bytes < 1024) {
-        return bytes + ' B';
-      } else if (bytes < 1024 * 1024) {
-        return (bytes / 1024).toFixed(2) + ' KB';
-      } else if (bytes < 1024 * 1024 * 1024) {
-        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
-      } else {
-        return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
-      }
-    },
     handleFilesUploaded(uploadedFiles: File[]){
       this.files.push(...uploadedFiles);
       this.showFileUpload = false;
       this.selectedFile.file = this.files[0];
     },
+
     handleFileSelected(file: any) {
       this.selectedFile = file;
     },
+
+    setSuccessToastMsg(numFiles: number) {
+      if (numFiles === 1) {
+        this.successToast.message = numFiles + ' Preview Generated Successfully 🎉'
+      } 
+      else {
+        this.successToast.message = numFiles + ' Previews Generated Successfully 🎉'
+      }
+    },
+
     handleFilesLoaded(fileObjects: object[]) {
       this.filesLoading = false
+      this.setSuccessToastMsg(fileObjects.length)
+      
       // get shortest video durration
+      // (this will set the maximum allowed preview durration)
       fileObjects.forEach((fileObj: any) => {
         if (this.shortestDuration === null || this.getSeconds(fileObj.duration) < this.shortestDuration) {
           this.shortestDuration = this.getSeconds(fileObj.duration);
         } 
       })
     },
+
     getSeconds(time: string | null){
       if (time) {
         // Split the input string into hours, minutes, and seconds
@@ -184,12 +172,14 @@ export default defineComponent({
         return 0;
       }
     },
+
     async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
         console.log(result)
         this.outputFilePath = result;
       })
     },
+
     removeExtension(filename: string) {
       // Split the filename into base name and extension
       const dotIndex = filename.lastIndexOf('.');
@@ -198,17 +188,27 @@ export default defineComponent({
 
       return baseName;
     },
+
     errorsFlagged(): boolean {
       const clipDuration = this.getSeconds(this.endTime) - this.getSeconds(this.startTime);
       if (this.endTime === '00:00:00' || this.getSeconds(this.startTime) > this.getSeconds(this.endTime) 
           || clipDuration > this.shortestDuration!) {
-        this.errorMessage = 'Please enter a valid start and end time';
-        this.showToast = !this.showToast;
+      
+        this.errorToast = {
+          message: 'Please enter a valid start and end time', 
+          kind: 'alert-error', 
+          timeout: 3000
+        }
         return true;
+
       } else if (this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) {
-        this.errorMessage = 'Please enter a valid output path';
-        this.showToast = !this.showToast;
+        this.errorToast = {
+          message: 'Please enter a valid output path', 
+          kind: 'alert-error', 
+          timeout: 3000
+        }
         return true;
+      
       } else {
         return false;
       }
@@ -252,6 +252,23 @@ export default defineComponent({
       }
     }, 
 
+    toggleToast(toast: Toast): void {
+      this.$emit('toggle-toast', toast)
+    },
+
+    handleFileOverwrite(data: string) {
+      // Regular expression pattern to match the overwrite prompt
+      const overwritePromptPattern = /already exists\. Overwrite\? \[y\/N\]/;
+      // Check if the output contains the overwrite prompt
+      const overwritePromptExists = overwritePromptPattern.test(data);
+
+
+      // if overwrite, toggle modal
+
+      // else, overwrite
+
+    },
+
     generatePreviews() {
       if (!this.errorsFlagged()) {
         this.files.forEach((file: any) => {
@@ -274,16 +291,25 @@ export default defineComponent({
             console.log(`FFMpeg stdout: ${data}`);
             this.progress = (this.getSeconds(this.parseOutTime(data)) / (this.getSeconds(this.endTime) - this.getSeconds(this.startTime))) * 100;
           });
+          // Process Finished
           childProcess.on('close', (code: any) => {
             this.generating = false;
             this.progress = 0;
+            this.toggleToast(this.successToast);
             new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
           });
           childProcess.stderr.on( 'data', (data: any) => {
-            // console.log( `stderr: ${data}` );
+            console.log( `stderr: ${data}` );
           });
         })
+      } else {
+        this.toggleToast(this.errorToast)
       }
+      
+      // Toggle Error OR Success Toast
+      
+      // this.toggleToast()
+      
     },
   }
 });
