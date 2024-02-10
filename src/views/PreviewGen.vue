@@ -1,7 +1,11 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
-    <Toast :message="errorMessage" kind="alert-error" :showToast="showToast" @close="showToast = false" :timeout="3000" />
+    <Toast 
+      :showToast="showToast" 
+      @close="showToast = false"
+      :toast="{message: errorMessage, kind: 'alert-error', timeout: 3000}"
+    />
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
         <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
@@ -28,44 +32,48 @@
               <p>Bitrate: <span class="float-right">{{ selectedFile.bitrate }}</span></p>
               <!-- TODO: Add type and last modified -->
             </div>
-            
           </div>
         </div>
       </div>
     </div>
   </div>
 
-    <div v-if="!showFileUpload" class="bg-base-200 rounded-xl p-3 bottom-0 mx-2">
-      <div v-if="!generating" class="flex justify-between items-center gap-10">
-        <div class="space-y-2">
-          <div class="flex justify-end items-center space-x-2">
-            <time-input
-              v-model="startTime"
-              label="Start timestamp"
-            />
-          </div>
-          <div class="flex justify-end items-center space-x-2">
-            <time-input
-              v-model="endTime"
-              label="End timestamp"
-            />
-          </div>
+  <div v-if="!showFileUpload" class="bg-base-200 rounded-xl p-3 bottom-0 mx-2">
+    <div v-if="!generating" class="flex justify-between items-center gap-10">
+      <div class="space-y-2">
+        <div class="flex justify-end items-center space-x-2">
+          <time-input
+            v-model="startTime"
+            label="Start timestamp"
+          />
         </div>
-        <div class="space-y-2 flex-grow max-w-md">
-          <div class="flex justify-end items-center space-x-2">
-            <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
-            <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
-          </div>  
+        <div class="flex justify-end items-center space-x-2">
+          <time-input
+            v-model="endTime"
+            label="End timestamp"
+          />
         </div>
-        <label class="btn btn-primary" @click="generatePreviews">
-          generate
-        </label>
       </div>
-
-      <div class="py-3" v-else>
-        <progress class="progress progress-primary w-full" :value="progress" max="100"></progress>
+      <div class="space-y-2 flex-grow max-w-md">
+        <div class="flex justify-end items-center space-x-2">
+          <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
+          <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
+        </div>  
+      </div>
+      <label class="btn btn-primary" @click="generatePreviews">
+        generate
+      </label>
+    </div>
+    <div class="py-3" v-else>
+      <div class="mb-2 text-base font-medium flex justify-between">
+        <span>Generating Previews...</span>
+        <span>{{ Math.floor(progress) }}%</span>
+      </div>
+      <div class="w-full bg-base-100 rounded-full h-2.5">
+        <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
       </div>
     </div>
+  </div>
 </template>
 
 <script lang="ts">
@@ -80,7 +88,6 @@ export default defineComponent({
   components: { McFileUpload, McFileGrid, TimeInput, Toast },
   name: 'PreviewGen',
   setup() {
-    // const toasted = require('vue-toasted');
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
     const pathToFfmpeg = require('ffmpeg-static');
@@ -155,33 +162,27 @@ export default defineComponent({
       this.showFileUpload = false;
       this.selectedFile.file = this.files[0];
     },
-    handleFileSelected(file: object) {
-      // @ts-ignore
+    handleFileSelected(file: any) {
       this.selectedFile = file;
     },
     handleFilesLoaded(fileObjects: object[]) {
       this.filesLoading = false
       // get shortest video durration
-      // could probably be more efficient lol
       fileObjects.forEach((fileObj: any) => {
-        if (this.shortestDuration === null) {
+        if (this.shortestDuration === null || this.getSeconds(fileObj.duration) < this.shortestDuration) {
           this.shortestDuration = this.getSeconds(fileObj.duration);
-        } else if (this.getSeconds(fileObj.duration) < this.shortestDuration) {
-          this.shortestDuration = this.getSeconds(fileObj.duration);
-        }
+        } 
       })
     },
     getSeconds(time: string | null){
       if (time) {
         // Split the input string into hours, minutes, and seconds
         let [hours, minutes, seconds] = time.split(":").map(Number);
-
         const totalSeconds = hours * 3600 + minutes * 60 + seconds;
         return totalSeconds;
       } else {
         return 0;
       }
-      
     },
     async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
@@ -213,7 +214,6 @@ export default defineComponent({
       }
     },
 
-
     parseOutTime(output: string): string | null {
       if (output) {
         const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
@@ -223,16 +223,13 @@ export default defineComponent({
       } else {
         return null
       }
-          
     },
-
 
     parseFFmpegProgress(progressStr: string): number | null {
       // Regular expression pattern to extract time and total duration
       const pattern = /time=(\d+):(\d+):(\d+\.\d+).*?duration=(\d+):(\d+):(\d+\.\d+)/;
       
       // Search for the pattern in the progress string
-      // @ts-ignore
       const match = RegExp(pattern).exec(progressStr);
       if (match) {
           // Extract hours, minutes, and seconds for current time and total duration
@@ -255,10 +252,9 @@ export default defineComponent({
       }
     }, 
 
-
     generatePreviews() {
       if (!this.errorsFlagged()) {
-        this.files.forEach((file:File) => {
+        this.files.forEach((file: any) => {
           const ffmpegCommand = [
             '-i', file.path,
             '-ss', this.startTime,
@@ -276,15 +272,12 @@ export default defineComponent({
           const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand)
           childProcess.stdout.on('data', (data: any) => {
             console.log(`FFMpeg stdout: ${data}`);
-
             this.progress = (this.getSeconds(this.parseOutTime(data)) / (this.getSeconds(this.endTime) - this.getSeconds(this.startTime))) * 100;
-
-            // console.log(progress + '%')
-
           });
           childProcess.on('close', (code: any) => {
             this.generating = false;
-            new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` })
+            this.progress = 0;
+            new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
           });
           childProcess.stderr.on( 'data', (data: any) => {
             // console.log( `stderr: ${data}` );
@@ -296,5 +289,10 @@ export default defineComponent({
 });
 </script>
 <style>
-
+/* Progress indicator styles */
+.progress-indicator {
+  height: 100%; /* Set the height to fill the container vertically */
+  border-radius: 4px; /* Add border radius for rounded corners */
+  transition: width 0.3s ease-in-out; /* Add transition for smooth animation */
+}
 </style>

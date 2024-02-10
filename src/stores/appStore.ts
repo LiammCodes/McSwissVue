@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { Tool } from '../types/Tool';
+import { Tool } from '../types/Types';
 
 function loadStoredTheme(): string {
   const storedTheme = localStorage.getItem('theme');

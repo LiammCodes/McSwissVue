@@ -53,15 +53,11 @@
           </li>
           <li @click="handleNavBtnClick(tools.previewGen)">
             <div :class="selectedTool === tools.previewGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              <!-- <span class="indicator-item indicator-middle indicator-end badge badge-success mr-5"></span> -->
-              <!-- <router-link to="/"> -->
                 {{ tools.previewGen }}
-              <!-- </router-link> -->
             </div>
           </li>
           <li @click="handleNavBtnClick(tools.segmentGen)">
             <div :class="selectedTool === tools.segmentGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              <!-- <span class="indicator-item indicator-middle indicator-end badge badge-success mr-5"></span> -->
               <router-link to="/segment-gen">
                 {{ tools.segmentGen }}
               </router-link>
@@ -89,7 +85,7 @@
 import { defineComponent } from 'vue';
 import { SwatchIcon, ChevronDownIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/20/solid';
 import { useAppStore } from '../stores/appStore';
-import { Tool } from '../types/Tool';
+import { Tool } from '../types/Types';
  
 export default defineComponent({
   name: 'McDrawer',
@@ -108,7 +104,7 @@ export default defineComponent({
       drawerOpen: true as boolean,
       logo: "../assets/img/mcintyreIconDark.png" as string,
       theme: "" as string,
-      selectedTool: "Preview Generator",
+      selectedTool: "Preview Generator" as Tool,
       tools: {
         previewGen: "Preview Generator" as Tool,
         segmentGen: "Segment Generator" as Tool,

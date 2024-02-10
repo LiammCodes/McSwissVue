@@ -1,11 +1,15 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create segments for" @files-uploaded="handleFilesUploaded" />
-  <div v-else class="m-2" style="overflow-x: hidden;">
+  <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <div class="grid grid-cols-4 gap-2 h-full">
       <mc-file-grid :files="files" class="col-span-3" />
-      <div class="col-span-1 flex flex-wrap gap-2 justify-start items-start bg-base-200 rounded-xl p-2">
-        <mc-segment></mc-segment>
+      <div class="col-span-1 flex flex-wrap gap-2 justify-start items-start bg-base-200 rounded-xl p-2" style="height:100%">
+        <div class="h-full">
+          <mc-segment></mc-segment>
+        </div>
+       
       </div>
+      <!-- <div class="col-span-1 gap-2 bg-base-200 rounded-xl"></div> -->
     </div>
   </div>
   <div v-if="!showFileUpload" class="flex justify-between items-center gap-10 bg-base-200 rounded-xl p-3 bottom-0 mx-2">
