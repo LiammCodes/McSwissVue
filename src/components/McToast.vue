@@ -1,7 +1,7 @@
 <template>
   <Transition name="slide-fade" class="pt-6 z-50">
     <div v-if="showToast" class="toast toast-top toast-right">
-      <div :class="['alert', 'max-w-sm', toast.kind, 'flex justify-between items-center toast-content']">
+      <div :class="['alert', 'max-w-md', toast.kind, 'flex justify-between items-center toast-content']">
         <span>{{ toast.message }}</span>
         <button class="close-button" @click="$emit('close')">
           <XMarkIcon class="h-5 w-5"/>

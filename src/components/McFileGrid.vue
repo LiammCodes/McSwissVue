@@ -1,12 +1,12 @@
 <template>
   <div class="bg-base-200 rounded-xl p-2 flex h-full" style="overflow-y: auto; overflow-x: hidden;">
-    <div v-if="filesLoading" class="flex items-center justify-center h-full w-full">
+    <div v-if="filesLoading || fileObjects == null" class="flex items-center justify-center h-full w-full">
       <span class="loading loading-spinner text-primary loading-lg"></span>
     </div>
     <div v-else class="col-span-3 gap-2 justify-start">
       <button 
         v-for="fileObj in fileObjects"
-        :key="fileObj.file.name"
+        :key="fileObj.file!.name"
         class="w-32 items-center p-2 rounded-xl hover:bg-base-300 focus:outline-none focus:ring focus:ring-primary"
         ref="fileBtns"
         @click="handleFileSelection(fileObj)"
@@ -15,9 +15,10 @@
           <img 
             class="rounded-md object-cover w-22 h-16" 
             :src="fileObj.thumbnailPath"
+            alt="Thumbnail for selected video"
           />
         </div>
-        <p class="text-center break-words text-xs pt-2">{{ shortenFileName(fileObj.file.name, 30) }}</p>
+        <p class="text-center break-words text-xs pt-2">{{ shortenFileName(fileObj.file!.name, 30) }}</p>
       </button>
     </div>
     <slot name="spacing"/>
@@ -26,6 +27,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType } from "vue";
+import { FileData } from "../types/Types";
 
 export default defineComponent({
   props: {
@@ -48,7 +50,7 @@ export default defineComponent({
 
   data() {
     return {
-      fileObjects: [] as object[],
+      fileObjects: [] as FileData[],
       filesLoading: true as boolean,
       tempPath: '' as string,
     }
@@ -60,7 +62,6 @@ export default defineComponent({
     this.handleFileSelection(this.fileObjects[0])
     this.selectFirstFile();
     this.filesLoaded();
-    console.log(this.fileObjects)
   },
 
   methods: {
@@ -91,10 +92,10 @@ export default defineComponent({
           const thumbnailPath = await this.generateThumbnail(file, this.calculateTimeMidpoint(metadata.duration));
 
           const fileObj = {
-            bitrate: metadata.bitrate as string,
-            duration: metadata.duration as string,
+            bitrate: metadata.bitrate,
+            duration: metadata.duration,
             file: file,
-            thumbnailPath: thumbnailPath as string,
+            thumbnailPath: thumbnailPath,
             size: metadata.size as string,
           }
 
@@ -106,7 +107,7 @@ export default defineComponent({
         this.fileObjects = fileObjects;
         
       } catch (error) {
-        console.error('Error:', error);
+        // console.error('Error:', error);
       }
     },
 
@@ -128,14 +129,13 @@ export default defineComponent({
       });
     },
 
-    async getMetaData(file: File) {
-      return new Promise<{ bitrate: string; duration: string }>((resolve, reject) => {
+    async getMetaData(file: any) {
+      return new Promise<{ bitrate: string; duration: string, size: string }>((resolve, reject) => {
         const result = {
           bitrate: '' as string,
           duration: '' as string,
           size: '' as string,
         };
-        // @ts-ignore
         const childProcess = this.spawn(this.pathToFfprobe.path, [
           '-i', 
           file.path + '', 
@@ -147,12 +147,12 @@ export default defineComponent({
           'default=noprint_wrappers=1:nokey=1', // Output format.
         ]);
         childProcess.stdout.on('data', (data: any) => {
-          console.log(`FFProbe stdout: ${data}`);
+          // console.log(`FFProbe stdout: ${data}`);
           result.size = data;
         });
 
         childProcess.stderr.on('data', (data: any) => {
-          console.log(`FFProbe sterr: ${data}`);
+          // console.log(`FFProbe sterr: ${data}`);
           const stderrData = data.toString();
           const durationRegex = /Duration: (\d+:\d+:\d+)/;
           const bitrateRegex = /bitrate: (\d+) kb\/s/;
@@ -177,12 +177,6 @@ export default defineComponent({
         });
       });
     },
-
-    // getProgress(currentTime: string) {
-    //   const currentSeconds = this.getSeconds(currentTime);
-    //   const totalSeconds = this.
-    //   return (currentSeconds / totalSeconds) * 100;
-    // },
 
     shortenFileName(filename: string, maxLength: number): string {
       if (filename.length <= maxLength) {
@@ -243,6 +237,3 @@ export default defineComponent({
   },
 });
 </script>
-
-<style scoped>
-</style>

@@ -12,7 +12,6 @@
         <p>Duration: <span class="float-right">{{ selectedFile.duration }}</span></p>
         <p>Size: <span class="float-right">{{ formatedFileSize(+selectedFile.file!.size) }}</span></p>
         <p>Bitrate: <span class="float-right">{{ selectedFile.bitrate }}</span></p>
-        <!-- TODO: Add type and last modified -->
       </div>
     </div>
   </div>
@@ -26,6 +25,9 @@ export default defineComponent({
   props: {
     filesLoading: Boolean,
     selectedFile: Object as PropType<FileData>
+  },
+  mounted() {
+    console.log(this.selectedFile)
   },
   methods: {
     formatedFileSize(bytes: number): string {

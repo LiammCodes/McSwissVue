@@ -1,6 +1,7 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
+    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-4 gap-2 h-full">
       <div class="col-span-3 h-full">
         <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
@@ -62,12 +63,13 @@ import { FileData } from '../types/Types';
 import { Toast } from '../types/Types';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
+import McBinaryModal from '../components/modals/McBinaryModal.vue';
 import TimeInput from '../components/TimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 
 
 export default defineComponent({
-  components: { McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
+  components: { McBinaryModal, McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
   name: 'PreviewGen',
   setup() {
     const appRootDir = require('app-root-dir').get();
@@ -82,6 +84,7 @@ export default defineComponent({
   },
   data(){
     return {
+      binaryModalResolver: null as (() => void) | null,
       endTime: '00:00:00' as string,
       errorMessage: '' as string,
       files: ref<File[]>([]),
@@ -90,6 +93,7 @@ export default defineComponent({
       loadingMetaData: false as boolean,
       outputFilePath: 'None' as string,
       outputFormat: '.mp4' as string,
+      overwriteResponse: null as null | boolean,
       progress: 0 as number,
       selectedFile: {
         bitrate: '' as string,
@@ -98,20 +102,24 @@ export default defineComponent({
         thumbnailPath: '' as string
       } as FileData,
       shortestDuration: null as null | number,
+      showBinaryModal: false as boolean,
       showFileUpload: true as boolean,
       showToast: false,
       startTime: '00:00:00' as string,
       tempDir: '' as string,
-      errorToast: {
-        message: '',
-        kind: '',
-        timeout: 3000
-      } as Toast,
-      successToast: {
-        message: '', // gets set later based on number of previews being generated
-        kind: 'alert-success', 
-        timeout: 5000
-      } as Toast
+      // errorToast: {
+      //   message: '',
+      //   kind: '',
+      //   timeout: 3000
+      // } as Toast,
+      // successToast: {
+      //   message: '', // gets set later based on number of previews being generated
+      //   kind: 'alert-success', 
+      //   timeout: 5000
+      // } as Toast,
+      toast: {} as Toast,
+      toastMessage: '' as string,
+      successToastMessage: '' as string,
     }
   },
   watch:{
@@ -140,12 +148,23 @@ export default defineComponent({
       this.selectedFile = file;
     },
 
+    handleOverwriteResponse(response: string): void {
+      this.showBinaryModal = false;
+
+      this.overwriteResponse = response === 'yes';
+      
+      // Resolve the promise to signal that the modal is closed
+      if (this.binaryModalResolver) {
+        this.binaryModalResolver();
+      }
+    },
+
     setSuccessToastMsg(numFiles: number) {
       if (numFiles === 1) {
-        this.successToast.message = numFiles + ' Preview Generated Successfully 🎉'
+        this.successToastMessage = numFiles + ' Preview Generated Successfully  🎉'
       } 
       else {
-        this.successToast.message = numFiles + ' Previews Generated Successfully 🎉'
+        this.successToastMessage = numFiles + ' Previews Generated Successfully  🎉'
       }
     },
 
@@ -194,19 +213,12 @@ export default defineComponent({
       if (this.endTime === '00:00:00' || this.getSeconds(this.startTime) > this.getSeconds(this.endTime) 
           || clipDuration > this.shortestDuration!) {
       
-        this.errorToast = {
-          message: 'Please enter a valid start and end time', 
-          kind: 'alert-error', 
-          timeout: 3000
-        }
+        this.toastMessage = 'Please enter a valid start and end time';
         return true;
 
       } else if (this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) {
-        this.errorToast = {
-          message: 'Please enter a valid output path', 
-          kind: 'alert-error', 
-          timeout: 3000
-        }
+
+        this.toastMessage = 'Please enter a valid output path';
         return true;
       
       } else {
@@ -256,20 +268,7 @@ export default defineComponent({
       this.$emit('toggle-toast', toast)
     },
 
-    handleFileOverwrite(data: string) {
-      // Regular expression pattern to match the overwrite prompt
-      const overwritePromptPattern = /already exists\. Overwrite\? \[y\/N\]/;
-      // Check if the output contains the overwrite prompt
-      const overwritePromptExists = overwritePromptPattern.test(data);
-
-
-      // if overwrite, toggle modal
-
-      // else, overwrite
-
-    },
-
-    generatePreviews() {
+    async generatePreviews() {
       if (!this.errorsFlagged()) {
         this.files.forEach((file: any) => {
           const ffmpegCommand = [
@@ -279,38 +278,74 @@ export default defineComponent({
             '-b:v', '3000k',
             '-progress', 'pipe:1',
             this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFormat)
-          ]
-          console.log("COMMAND:")
-          console.log(ffmpegCommand)
+          ];
+          // console.log("COMMAND:");
+          // console.log(ffmpegCommand);
 
           this.generating = true;
 
-          //@ts-ignore
-          const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand)
-          childProcess.stdout.on('data', (data: any) => {
-            console.log(`FFMpeg stdout: ${data}`);
-            this.progress = (this.getSeconds(this.parseOutTime(data)) / (this.getSeconds(this.endTime) - this.getSeconds(this.startTime))) * 100;
-          });
-          // Process Finished
-          childProcess.on('close', (code: any) => {
-            this.generating = false;
-            this.progress = 0;
-            this.toggleToast(this.successToast);
-            new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
-          });
-          childProcess.stderr.on( 'data', (data: any) => {
-            console.log( `stderr: ${data}` );
-          });
-        })
+          const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand);
+          
+          if (childProcess) { // Check if childProcess is not null
+            childProcess.stdout.on('data', (data: any) => {
+              // console.log(`FFMpeg stdout: ${data}`);
+              this.progress = (this.getSeconds(this.parseOutTime(data)) / (this.getSeconds(this.endTime) - this.getSeconds(this.startTime))) * 100;
+            });
+
+            childProcess.stderr.on('data', async (data: any) => {
+              const message = data.toString().trim();
+              if (message.includes('Overwrite? [y/N]')) {
+                // Toggle the modal
+                this.showBinaryModal = true;
+
+                // Wait for the modal to close before triggering the action
+                await new Promise((resolve) => {
+                  // @ts-ignore
+                  this.binaryModalResolver = resolve;
+                });
+                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+                childProcess.stdin.write(overwrite + '\n');
+              } else {
+                // console.error(`FFMpeg stderr: ${message}`);
+              }
+            });
+
+            childProcess.on('close', (code: any) => {
+              this.generating = false;
+              this.progress = 0;
+
+              if (this.overwriteResponse || this.overwriteResponse === null) {
+                this.toastMessage = this.successToastMessage;
+              } else {
+                this.toastMessage = 'Preview generation aborted.';
+              }
+
+              this.toast = {
+                message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
+                kind: 'alert-success',
+                timeout: 5000,
+              }
+              
+              this.toggleToast(this.toast);
+              new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
+            });
+
+            childProcess.on('error', (err: any) => {
+              // console.error(`FFMpeg process error: ${err}`);
+            });
+          } else {
+            // console.error('Failed to spawn FFMpeg process.');
+          }
+        });
       } else {
-        this.toggleToast(this.errorToast)
+        this.toast = {
+          message: this.toastMessage,
+          kind: 'alert-error',
+          timeout: 3000
+        }
+        this.toggleToast(this.toast);
       }
-      
-      // Toggle Error OR Success Toast
-      
-      // this.toggleToast()
-      
-    },
+    }
   }
 });
 </script>

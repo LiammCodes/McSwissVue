@@ -1,6 +1,8 @@
 <template>
-  <div class="flex justify-end items-center space-x-2">
-    <span>{{ label }}: </span>
+  <div class="flex items-center space-x-2">
+    <div class="text-right">
+      <span>{{ label }}: </span>
+    </div>
     <input
       type="text"
       v-mask="'##:##:##'"
