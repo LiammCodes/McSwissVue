@@ -7,7 +7,7 @@
       <button 
         v-for="fileObj in fileObjects"
         :key="fileObj.file!.name"
-        class="w-32 items-center p-2 rounded-xl hover:bg-base-300 focus:outline-none focus:ring focus:ring-primary"
+        class="w-32 items-center p-2 m-1 rounded-xl hover:bg-base-300 focus:outline-none focus:ring focus:ring-primary"
         ref="fileBtns"
         @click="handleFileSelection(fileObj)"
       >

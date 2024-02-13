@@ -40,7 +40,7 @@
           <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
         </div>  
       </div>
-      <label class="btn btn-primary" @click="generatePreviews">
+      <label class="btn btn-primary" @click="handleGenerate()">
         generate
       </label>
     </div>
@@ -61,6 +61,13 @@ import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
 import { FileData } from '../types/Types';
 import { Toast } from '../types/Types';
+import { 
+  fileAlreadyExists,
+  getSeconds,
+  getShortestVideoDuration,
+  parseFFmpegProgress,
+  removeExtension
+} from '../utils/HelperFunctions';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
@@ -69,18 +76,20 @@ import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 
 
 export default defineComponent({
-  components: { McBinaryModal, McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
   name: 'PreviewGen',
+  components: { McBinaryModal, McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
+    const os = require('os');
     const pathToFfmpeg = require('ffmpeg-static');
     const pathToFfprobe = require('ffprobe-static');
     const spawn = require('child_process').spawn;
     const ipcRenderer = require('electron').ipcRenderer;
     const dialog = require('electron').dialog;
     const path = require('path');
-    return { ipcRenderer, appRootDir, appStore, dialog, spawn, pathToFfmpeg, pathToFfprobe, path }
+    const fs = require('fs');
+    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, pathToFfmpeg, pathToFfprobe, spawn }
   },
   data(){
     return {
@@ -92,7 +101,7 @@ export default defineComponent({
       generating: false as boolean,
       loadingMetaData: false as boolean,
       outputFilePath: 'None' as string,
-      outputFormat: '.mp4' as string,
+      outputFileExtension: '.mp4' as string,
       overwriteResponse: null as null | boolean,
       progress: 0 as number,
       selectedFile: {
@@ -107,32 +116,12 @@ export default defineComponent({
       showToast: false,
       startTime: '00:00:00' as string,
       tempDir: '' as string,
-      // errorToast: {
-      //   message: '',
-      //   kind: '',
-      //   timeout: 3000
-      // } as Toast,
-      // successToast: {
-      //   message: '', // gets set later based on number of previews being generated
-      //   kind: 'alert-success', 
-      //   timeout: 5000
-      // } as Toast,
       toast: {} as Toast,
       toastMessage: '' as string,
       successToastMessage: '' as string,
     }
   },
-  watch:{
-    // startTime(newTime: any) {
-    //   console.log(newTime)
-    // },
-    // endTime(newTime: any) {
-    //   console.log(newTime)
-    // },
-    // outputFilePath(newPath: any) {
-    //   console.log(newPath)
-    // }
-  },
+  watch:{},
   emits: ['toggle-toast'],
   mounted() {
     this.appStore.setSelectedTool('Preview Generator');
@@ -150,7 +139,6 @@ export default defineComponent({
 
     handleOverwriteResponse(response: string): void {
       this.showBinaryModal = false;
-
       this.overwriteResponse = response === 'yes';
       
       // Resolve the promise to signal that the modal is closed
@@ -174,22 +162,7 @@ export default defineComponent({
       
       // get shortest video durration
       // (this will set the maximum allowed preview durration)
-      fileObjects.forEach((fileObj: any) => {
-        if (this.shortestDuration === null || this.getSeconds(fileObj.duration) < this.shortestDuration) {
-          this.shortestDuration = this.getSeconds(fileObj.duration);
-        } 
-      })
-    },
-
-    getSeconds(time: string | null){
-      if (time) {
-        // Split the input string into hours, minutes, and seconds
-        let [hours, minutes, seconds] = time.split(":").map(Number);
-        const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-        return totalSeconds;
-      } else {
-        return 0;
-      }
+      this.shortestDuration = getShortestVideoDuration(fileObjects);
     },
 
     async setOutputPath() {
@@ -197,15 +170,6 @@ export default defineComponent({
         console.log(result)
         this.outputFilePath = result;
       })
-    },
-
-    removeExtension(filename: string) {
-      // Split the filename into base name and extension
-      const dotIndex = filename.lastIndexOf('.');
-      const baseName = filename.slice(0, dotIndex);
-      const extension = filename.slice(dotIndex);
-
-      return baseName;
     },
 
     errorsFlagged(): boolean {
@@ -226,117 +190,23 @@ export default defineComponent({
       }
     },
 
-    parseOutTime(output: string): string | null {
-      if (output) {
-        const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
-        const match = RegExp(pattern).exec(output);
+    fileAlreadyExists,
 
-        return match ? match[1] : null;  
-      } else {
-        return null
-      }
-    },
+    getSeconds,
 
-    parseFFmpegProgress(progressStr: string): number | null {
-      // Regular expression pattern to extract time and total duration
-      const pattern = /time=(\d+):(\d+):(\d+\.\d+).*?duration=(\d+):(\d+):(\d+\.\d+)/;
-      
-      // Search for the pattern in the progress string
-      const match = RegExp(pattern).exec(progressStr);
-      if (match) {
-          // Extract hours, minutes, and seconds for current time and total duration
-          const currentHours = parseFloat(match[1]);
-          const currentMinutes = parseFloat(match[2]);
-          const currentSeconds = parseFloat(match[3]);
-          const totalHours = parseFloat(match[4]);
-          const totalMinutes = parseFloat(match[5]);
-          const totalSeconds = parseFloat(match[6]);
-          
-          // Calculate total duration in seconds and current time in seconds
-          const totalDuration = (totalHours * 3600) + (totalMinutes * 60) + totalSeconds;
-          const currentTime = (currentHours * 3600) + (currentMinutes * 60) + currentSeconds;
-          
-          // Calculate progress percentage
-          const progressPercentage = (currentTime / totalDuration) * 100;
-          return progressPercentage;
-      } else {
-          return null;
-      }
-    }, 
+    parseFFmpegProgress,
+    
+    removeExtension,
+
+    getShortestVideoDuration,
 
     toggleToast(toast: Toast): void {
       this.$emit('toggle-toast', toast)
     },
 
-    async generatePreviews() {
+    async handleGenerate() {
       if (!this.errorsFlagged()) {
-        this.files.forEach((file: any) => {
-          const ffmpegCommand = [
-            '-i', file.path,
-            '-ss', this.startTime,
-            '-to', this.endTime,
-            '-b:v', '3000k',
-            '-progress', 'pipe:1',
-            this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFormat)
-          ];
-          // console.log("COMMAND:");
-          // console.log(ffmpegCommand);
-
-          this.generating = true;
-
-          const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand);
-          
-          if (childProcess) { // Check if childProcess is not null
-            childProcess.stdout.on('data', (data: any) => {
-              // console.log(`FFMpeg stdout: ${data}`);
-              this.progress = (this.getSeconds(this.parseOutTime(data)) / (this.getSeconds(this.endTime) - this.getSeconds(this.startTime))) * 100;
-            });
-
-            childProcess.stderr.on('data', async (data: any) => {
-              const message = data.toString().trim();
-              if (message.includes('Overwrite? [y/N]')) {
-                // Toggle the modal
-                this.showBinaryModal = true;
-
-                // Wait for the modal to close before triggering the action
-                await new Promise((resolve) => {
-                  // @ts-ignore
-                  this.binaryModalResolver = resolve;
-                });
-                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
-                childProcess.stdin.write(overwrite + '\n');
-              } else {
-                // console.error(`FFMpeg stderr: ${message}`);
-              }
-            });
-
-            childProcess.on('close', (code: any) => {
-              this.generating = false;
-              this.progress = 0;
-
-              if (this.overwriteResponse || this.overwriteResponse === null) {
-                this.toastMessage = this.successToastMessage;
-              } else {
-                this.toastMessage = 'Preview generation aborted.';
-              }
-
-              this.toast = {
-                message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
-                kind: 'alert-success',
-                timeout: 5000,
-              }
-              
-              this.toggleToast(this.toast);
-              new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
-            });
-
-            childProcess.on('error', (err: any) => {
-              // console.error(`FFMpeg process error: ${err}`);
-            });
-          } else {
-            // console.error('Failed to spawn FFMpeg process.');
-          }
-        });
+        await this.generatePreviews();
       } else {
         this.toast = {
           message: this.toastMessage,
@@ -345,6 +215,75 @@ export default defineComponent({
         }
         this.toggleToast(this.toast);
       }
+    },
+
+    handleGenerationComplete(code: any) {
+      this.generating = false;
+      this.progress = 0;
+
+      if (this.overwriteResponse || this.overwriteResponse === null) {
+        this.toastMessage = this.successToastMessage;
+      } else {
+        this.toastMessage = 'Preview generation aborted.';
+      }
+
+      this.toast = {
+        message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
+        kind: 'alert-success',
+        timeout: 5000,
+      }
+      
+      this.toggleToast(this.toast);
+      new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
+    },
+
+    async generatePreviews() {
+      // check if any new files already exist
+      if (this.fileAlreadyExists(this.files, this.outputFilePath, this.outputFileExtension)) {
+        // Toggle the modal
+        this.showBinaryModal = true;
+
+        // Wait for the modal to close before triggering the action
+        await new Promise((resolve) => {
+          // @ts-ignore
+          this.binaryModalResolver = resolve;
+        });
+      } 
+
+      this.files.forEach((file: any) => {
+        const ffmpegCommand = [
+          '-i', file.path,
+          '-ss', this.startTime,
+          '-to', this.endTime,
+          '-b:v', '3000k',
+          '-progress', 'pipe:1',
+          this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFileExtension)
+        ];
+
+        this.generating = true;
+        const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand);
+        
+        if (childProcess) { // Check if childProcess is not null
+          childProcess.stdout.on('data', (data: any) => {
+            this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime);
+          });
+          childProcess.stderr.on('data', async (data: any) => {
+            const message = data.toString().trim();
+
+            if (message.includes('Overwrite? [y/N]')) {
+              const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+              childProcess.stdin.write(overwrite + '\n');
+            } 
+          });
+          childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
+          childProcess.on('error', (err: any) => {
+            // pass
+          });
+        } else {
+          console.error('Failed to spawn FFMpeg process.');
+        }
+      });
+      
     }
   }
 });

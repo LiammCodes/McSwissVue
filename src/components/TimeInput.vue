@@ -19,11 +19,11 @@ export default defineComponent({
   name: 'TimeInput',
   props: {
     label: String,
-    value: String,
+    modelValue: String,
   },
   data() {
     return {
-      time: "00:00:00"
+      time: this.modelValue as string,
     }
   },
   methods: {

@@ -12,3 +12,8 @@ export type FileData = {
   file: null | File,
   thumbnailPath: string
 }
+
+export type Segment = {
+  startTime: string,
+  endTime: string,
+}
