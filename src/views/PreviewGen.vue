@@ -3,64 +3,61 @@
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-4 gap-2 h-full">
-      <div class="col-span-3 h-full">
-        <mc-file-grid :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
-          <template v-slot:spacing>
-            <div class="h-full"></div>
-          </template>
-        </mc-file-grid>
-      </div>
-
-      <!-- METADATA COL -->
-      <div class="col-span-1 gap-2 bg-base-200 rounded-xl">
-        <mc-meta-data-column :files-loading="filesLoading" :selected-file="selectedFile" />
-      </div>
+      <!-- file grid col -->
+      <mc-file-grid class="col-span-3 h-full" :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
+        <template v-slot:spacing>
+          <div class="h-full"></div>
+        </template>
+      </mc-file-grid>
+      <!-- metadata col -->
+      <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl" :files-loading="filesLoading" :selected-file="selectedFile" />
     </div>
   </div>
 
-  <div v-if="!showFileUpload" class="bg-base-200 rounded-xl p-3 bottom-0 mx-2">
-    <div v-if="!generating" class="flex justify-between items-center gap-10">
-      <div class="space-y-2">
-        <div class="flex justify-end items-center space-x-2">
-          <time-input
-            v-model="startTime"
-            label="Start timestamp"
-          />
+  <mc-data-intake v-if="!showFileUpload">
+    <template v-slot:data-intake>
+      <div v-if="!generating" class="flex justify-between items-center gap-10">
+        <div class="space-y-2">
+          <div class="flex justify-end items-center space-x-2">
+            <time-input
+              v-model="startTime"
+              label="Start timestamp"
+            />
+          </div>
+          <div class="flex justify-end items-center space-x-2">
+            <time-input
+              v-model="endTime"
+              label="End timestamp"
+            />
+          </div>
         </div>
-        <div class="flex justify-end items-center space-x-2">
-          <time-input
-            v-model="endTime"
-            label="End timestamp"
-          />
+        <div class="space-y-2 flex-grow max-w-md">
+          <div class="flex justify-end items-center space-x-2">
+            <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
+            <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
+          </div>  
+        </div>
+        <label class="btn btn-primary" @click="handleGenerate()">
+          generate
+        </label>
+      </div>
+      <div class="py-3" v-else>
+        <div class="mb-2 text-base font-medium flex justify-between">
+          <span>Generating Previews...</span>
+          <span>{{ Math.floor(progress) }}%</span>
+        </div>
+        <div class="w-full bg-base-100 rounded-full h-2.5">
+          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
-      <div class="space-y-2 flex-grow max-w-md">
-        <div class="flex justify-end items-center space-x-2">
-          <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
-          <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
-        </div>  
-      </div>
-      <label class="btn btn-primary" @click="handleGenerate()">
-        generate
-      </label>
-    </div>
-    <div class="py-3" v-else>
-      <div class="mb-2 text-base font-medium flex justify-between">
-        <span>Generating Previews...</span>
-        <span>{{ Math.floor(progress) }}%</span>
-      </div>
-      <div class="w-full bg-base-100 rounded-full h-2.5">
-        <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
-      </div>
-    </div>
-  </div>
+    </template>
+  </mc-data-intake>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
-import { FileData } from '../types/Types';
-import { Toast } from '../types/Types';
+import { FileData, Toast } from '../types/Types';
 import { 
   fileAlreadyExists,
   getSeconds,
@@ -70,6 +67,7 @@ import {
 } from '../utils/HelperFunctions';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
+import McDataIntake from '../components/McDataIntake.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
 import TimeInput from '../components/TimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
@@ -77,7 +75,7 @@ import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 
 export default defineComponent({
   name: 'PreviewGen',
-  components: { McBinaryModal, McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
+  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
@@ -99,7 +97,6 @@ export default defineComponent({
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       generating: false as boolean,
-      loadingMetaData: false as boolean,
       outputFilePath: 'None' as string,
       outputFileExtension: '.mp4' as string,
       overwriteResponse: null as null | boolean,
