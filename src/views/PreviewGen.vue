@@ -19,13 +19,13 @@
       <div v-if="!generating" class="flex justify-between items-center gap-10">
         <div class="space-y-2">
           <div class="flex justify-end items-center space-x-2">
-            <time-input
+            <mc-time-input
               v-model="startTime"
               label="Start timestamp"
             />
           </div>
           <div class="flex justify-end items-center space-x-2">
-            <time-input
+            <mc-time-input
               v-model="endTime"
               label="End timestamp"
             />
@@ -69,13 +69,13 @@ import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
 import McDataIntake from '../components/McDataIntake.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
-import TimeInput from '../components/TimeInput.vue';
+import McTimeInput from '../components/McTimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 
 
 export default defineComponent({
   name: 'PreviewGen',
-  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, TimeInput },
+  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McTimeInput },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();

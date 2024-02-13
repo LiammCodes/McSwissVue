@@ -14,6 +14,7 @@ export type FileData = {
 }
 
 export type Segment = {
+  name: string,
   startTime: string,
   endTime: string,
 }

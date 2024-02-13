@@ -1,5 +1,5 @@
 <template>
-  <div class="flex items-center space-x-2">
+  <div class="flex items-center w-full justify-between space-x-2">
     <div class="text-right">
       <span>{{ label }}: </span>
     </div>

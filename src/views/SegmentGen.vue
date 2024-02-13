@@ -1,7 +1,7 @@
 <template>
   <mc-file-upload v-if="showFileUpload" action="create segments for" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
-    <div class="grid grid-cols-8 gap-2 h-full">
+    <div class="grid grid-cols-8 gap-2 h-full" style="overflow-x: hidden;">
       <!-- file grid col -->
       <mc-file-grid class="col-span-4" :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
         <template v-slot:spacing>
@@ -9,9 +9,21 @@
         </template>
       </mc-file-grid>
       <!-- segment list col -->
-      <div class="col-span-2 flex flex-wrap gap-2 justify-start items-start bg-base-200 rounded-xl p-2" style="height:100%">
-        <div class="h-full">
-          <mc-segment></mc-segment>
+      <div class="col-span-2 flex flex-wrap gap-2 justify-start items-start rounded-xl h-full" style="overflow-x: hidden;">
+        <div class="w-full space-y-2">
+          <!-- scrollable list of secments-->
+          <div class="max-h-screen space-y-1">
+            <mc-segment 
+              v-for="segment in segments"
+              :modelValue="segment"
+            />
+            <button 
+              class="btn flex gap-2 justify-center border-2 border-base-content text-inherit border-dashed rounded-xl hover:border-primary hover:text-primary hover:cursor-pointer p-2 w-full" 
+              @click="addSegment"
+            >
+              <plus-circle-icon color="primary" class="h-6 w-6"/>
+            </button>
+          </div>
         </div>
       </div>
       <!-- metadata col -->
@@ -49,6 +61,7 @@
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
 import { FileData, Segment } from '../types/Types';
+import { PlusCircleIcon } from '@heroicons/vue/24/outline';
 import { 
   fileAlreadyExists,
   getSeconds,
@@ -61,12 +74,11 @@ import McFileGrid from '../components/McFileGrid.vue';
 import McDataIntake from '../components/McDataIntake.vue';
 import McSegment from '../components/McSegment.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
-import TimeInput from '../components/TimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 
 export default defineComponent({
   name: 'SegmentGen',
-  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McSegment, TimeInput },
+  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McSegment, PlusCircleIcon },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
@@ -82,6 +94,11 @@ export default defineComponent({
   },
   data() {
     return {
+      defaultSegment: {
+        name: 'Set it later',
+        startTime: '00:00:00',
+        endTime: '00:00:00'
+      } as Segment,
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       generating: false as boolean,
@@ -96,6 +113,7 @@ export default defineComponent({
         thumbnailPath: '' as string
       } as FileData,
       segments: [{
+        name: 'TestSegment_a.mp4',
         startTime: '00:00:00',
         endTime: '00:00:00',
       }] as Segment[],
@@ -143,6 +161,10 @@ export default defineComponent({
         console.log(result)
         this.outputFilePath = result;
       })
+    },
+
+    addSegment() {
+      this.segments.push(this.defaultSegment);
     },
 
     handleGenerate() {

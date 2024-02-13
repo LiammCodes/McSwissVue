@@ -1,7 +1,7 @@
 <template>
-  <div class="drawer h-screen">
+  <div class="drawer h-screen" style="overflow-x: hidden;">
     <input id="my-drawer" type="checkbox" v-model="drawerOpen" class="d-toggle" /> 
-    <div class="drawer-content flex flex-col p-2">
+    <div class="drawer-content flex flex-col p-2" style="overflow-x: hidden;">
       <!-- Navbar -->
       <div class="navbar bg-primary rounded-box text-primary-content">
         <div class="flex-none">
@@ -37,7 +37,7 @@
         </div>
       </div>
       <!-- Page content here -->
-      <slot name="tool-view"></slot>
+      <slot name="tool-view" style="overflow-x: hidden;"></slot>
     </div> 
     <div class="drawer-side">
       <label for="my-drawer" class="drawer-overlay"></label> 
