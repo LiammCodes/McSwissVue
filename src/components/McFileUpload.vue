@@ -1,5 +1,9 @@
 <template>
- <div class="h-full w-full flex items-start justify-center mt-20">
+ <div 
+  class="h-full w-full flex items-start justify-center mt-20"
+  @dragover.prevent="handleDragOver"
+  @drop.prevent="handleDrop"  
+ >
     <label class="flex justify-center items-center w-3/4 h-1/2 px-4 transition bg-base-100 border-2 border-text border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none">
       <span class="flex items-center space-x-2">
         <svg 
@@ -20,7 +24,7 @@
           <span class="text-primary underline"> browse</span>
         </span>
       </span>
-      <input type="file" name="file_upload" class="hidden" @change="handleFileUpload" multiple>
+      <input type="file" name="file_upload" class="hidden" @change="handleFileUpload" :multiple="multipleFiles">
     </label>
   </div>
 </template>
@@ -32,12 +36,30 @@ export default defineComponent({
   name: 'McFileUpload',
   emits: ["files-uploaded"],
   props: {
-    action: String
+    action: String,
+    multipleFiles: {
+      type: Boolean,
+      required: false,
+      default: true,
+    }
   },
   setup() {
     
   },
   methods: {
+    handleDragOver(event: DragEvent) {
+      event.preventDefault();
+    },
+    handleDrop(event: DragEvent) {
+      event.preventDefault();
+      let files: File[];
+      if (this.multipleFiles){
+        files = Array.from(event.dataTransfer?.files || []);
+      } else {
+        files = event.dataTransfer?.files ? [event.dataTransfer.files[0]] : [];
+      }
+      this.$emit("files-uploaded", files);
+    },
     handleFileUpload(event: Event) {
       const input = event.target as HTMLInputElement;
       if (input.files) {

@@ -1,5 +1,5 @@
 <template>
-  <mc-file-upload v-if="showFileUpload" action="create segments for" @files-uploaded="handleFilesUploaded" />
+  <mc-file-upload v-if="showFileUpload" action="create segments for" :multiple-files="false" @files-uploaded="handleFilesUploaded" />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <div class="grid grid-cols-8 gap-2 h-full" style="overflow-x: hidden;">
       <!-- file grid col -->
@@ -12,15 +12,14 @@
       <div class="col-span-2 flex flex-wrap gap-2 justify-start items-start rounded-xl h-full" style="overflow-x: hidden;">
         <div class="w-full space-y-2">
           <!-- scrollable list of secments-->
-          <div class="max-h-screen space-y-1">
+          <div class="max-h-screen space-y-2">
             <mc-segment 
               v-for="segment in segments"
+              :key="segment.id"
               :modelValue="segment"
+              @delete-segment="deleteSegment(segment.id)"
             />
-            <button 
-              class="btn flex gap-2 justify-center border-2 border-base-content text-inherit border-dashed rounded-xl hover:border-primary hover:text-primary hover:cursor-pointer p-2 w-full" 
-              @click="addSegment"
-            >
+            <button class="btn btn-neutral w-full" @click="addSegment">
               <plus-circle-icon color="primary" class="h-6 w-6"/>
             </button>
           </div>
@@ -164,8 +163,24 @@ export default defineComponent({
     },
 
     addSegment() {
-      this.segments.push(this.defaultSegment);
+      // set new id for segment
+      this.segments.push({
+        name: 'Set it later',
+        startTime: '00:00:00',
+        endTime: '00:00:00',
+        id: this.segments.length
+      });
+      console.log(this.segments);
     },
+
+    deleteSegment(id: number) {
+      const index = this.segments.findIndex(segment => segment.id === id);
+      if (index !== -1) {
+        this.segments.splice(index, 1);
+        console.log("Segment deleted:", id);
+      }
+    },
+
 
     handleGenerate() {
 

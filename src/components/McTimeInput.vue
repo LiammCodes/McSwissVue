@@ -1,7 +1,7 @@
 <template>
   <div class="flex items-center w-full justify-between space-x-2">
     <div class="text-right">
-      <span>{{ label }}: </span>
+      <span>{{ label }}:</span>
     </div>
     <input
       type="text"

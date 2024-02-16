@@ -32,7 +32,6 @@ export function removeExtension(filename: string) {
   // Split the filename into base name and extension
   const dotIndex = filename.lastIndexOf('.');
   const baseName = filename.slice(0, dotIndex);
-  const extension = filename.slice(dotIndex);
 
   return baseName;
 }
