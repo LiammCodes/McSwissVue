@@ -26,7 +26,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from "vue";
+import { defineComponent, PropType, } from "vue";
 import { FileData } from "../types/Types";
 
 export default defineComponent({
@@ -66,10 +66,10 @@ export default defineComponent({
 
   methods: {
     selectFirstFile() {
-      this.$nextTick(() => {
-        // @ts-ignore
-        this.$refs.fileBtns[0].focus();
-      })
+      const fileButtons = this.$refs.fileBtns as HTMLElement[]; // Type assertion
+      if (fileButtons.length > 0) {
+        fileButtons[0].focus();
+      }
     },
 
     filesLoaded() {

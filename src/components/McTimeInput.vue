@@ -8,7 +8,7 @@
       v-mask="'##:##:##'"
       v-model="time"
       @input="handleInput"
-      class="input input-sm w-24 focus:outline-none"
+      class="input input-sm focus:outline-none w-24 text-center"
     />
   </div> 
 </template>
