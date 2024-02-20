@@ -1,5 +1,10 @@
 <template>
-  <mc-file-upload v-if="showFileUpload" action="create previews for" @files-uploaded="handleFilesUploaded" />
+  <mc-file-upload 
+    v-if="showFileUpload" 
+    action="create previews for" 
+    @files-uploaded="handleFilesUploaded" 
+    @bad-extension="handleBadExtension"
+  />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-4 gap-2 h-full">
@@ -124,6 +129,13 @@ export default defineComponent({
     this.appStore.setSelectedTool('Preview Generator');
   },
   methods: {
+    handleBadExtension() {
+      this.$emit('toggle-toast', {
+          message: 'Only .mp4, .mov, and .m4v files are allowed',
+          kind: 'alert-error',
+          timeout: 3000
+        })
+    },
     handleFilesUploaded(uploadedFiles: File[]){
       this.files.push(...uploadedFiles);
       this.showFileUpload = false;
@@ -197,10 +209,6 @@ export default defineComponent({
 
     getShortestVideoDuration,
 
-    toggleToast(toast: Toast): void {
-      this.$emit('toggle-toast', toast)
-    },
-
     async handleGenerate() {
       if (!this.errorsFlagged()) {
         await this.generatePreviews();
@@ -210,7 +218,7 @@ export default defineComponent({
           kind: 'alert-error',
           timeout: 3000
         }
-        this.toggleToast(this.toast);
+        this.$emit('toggle-toast', this.toast)
       }
     },
 
@@ -229,8 +237,7 @@ export default defineComponent({
         kind: 'alert-success',
         timeout: 5000,
       }
-      
-      this.toggleToast(this.toast);
+      this.$emit('toggle-toast', this.toast);
       new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
     },
 

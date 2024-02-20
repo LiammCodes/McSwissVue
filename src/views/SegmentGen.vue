@@ -1,5 +1,11 @@
 <template>
-  <mc-file-upload v-if="showFileUpload" action="create segments for" :multiple-files="false" @files-uploaded="handleFilesUploaded" />
+  <mc-file-upload 
+    v-if="showFileUpload" 
+    action="create segments for" 
+    :multiple-files="false" 
+    @files-uploaded="handleFilesUploaded" 
+    @bad-extension="handleBadExtension"
+  />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <div class="grid grid-cols-8 gap-2 h-full" style="overflow-x: hidden;">
       <!-- file grid col -->
@@ -125,6 +131,14 @@ export default defineComponent({
     this.appStore.setSelectedTool('Segment Generator');
   },
   methods: {
+    handleBadExtension() {
+      this.$emit('toggle-toast', {
+          message: 'Only .mp4, .mov, and .m4v files are allowed',
+          kind: 'alert-error',
+          timeout: 3000
+        })
+    },
+
     handleFilesUploaded(uploadedFiles: File[]){
       this.files.push(...uploadedFiles);
       this.showFileUpload = false;
