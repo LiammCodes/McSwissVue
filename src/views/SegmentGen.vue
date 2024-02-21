@@ -65,7 +65,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
-import { FileData, Segment } from '../types/Types';
+import { FileData, Segment, Toast } from '../types/Types';
 import { PlusCircleIcon } from '@heroicons/vue/24/outline';
 import { 
   fileAlreadyExists,
@@ -125,6 +125,8 @@ export default defineComponent({
       shortestDuration: null as null | number,
       showFileUpload: true as boolean,
       successToastMessage: '' as string,
+      toast: {} as Toast,
+      toastMessage: '' as string
     }
   },
   mounted() {
@@ -195,9 +197,45 @@ export default defineComponent({
       }
     },
 
+    errorsFlagged(): boolean {
 
-    handleGenerate() {
+      // TODO: Loop through every segment and check the following
 
+      // const clipDuration = this.getSeconds(this.endTime) - this.getSeconds(this.startTime);
+      // if (this.endTime === '00:00:00' || this.getSeconds(this.startTime) > this.getSeconds(this.endTime) 
+      //     || clipDuration > this.shortestDuration!) {
+      
+      //   this.toastMessage = 'Please enter a valid start and end time';
+      //   return true;
+
+      // } else if (this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) {
+
+      //   this.toastMessage = 'Please enter a valid output path';
+      //   return true;
+      
+      // } else {
+      //   return false;
+      // }
+
+      return false;
+
+    },
+
+    generateSegments() {
+
+    },
+    
+    async handleGenerate() {
+      if (!this.errorsFlagged()) {
+        await this.generateSegments();
+      } else {
+        this.toast = {
+          message: this.toastMessage,
+          kind: 'alert-error',
+          timeout: 3000
+        }
+        this.$emit('toggle-toast', this.toast)
+      }
     }
 
   }
