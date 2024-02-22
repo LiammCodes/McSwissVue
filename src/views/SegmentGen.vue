@@ -147,6 +147,8 @@ export default defineComponent({
       this.selectedFile.file = this.files[0];
     },
 
+    getSeconds,
+    
     getShortestVideoDuration,
 
     handleFilesLoaded(fileObjects: object[]) {
@@ -198,27 +200,25 @@ export default defineComponent({
     },
 
     errorsFlagged(): boolean {
-
       // TODO: Loop through every segment and check the following
+      let hasError = false;
+      this.segments.forEach((segment: Segment) => {
+        const clipDuration = this.getSeconds(segment.endTime) - this.getSeconds(segment.startTime);
+        if (segment.endTime === '00:00:00' || this.getSeconds(segment.startTime) > this.getSeconds(segment.endTime) 
+            || clipDuration > this.shortestDuration!) {
+        
+          this.toastMessage = 'Please enter a valid start and end time';
+          hasError = true
+          return;
 
-      // const clipDuration = this.getSeconds(this.endTime) - this.getSeconds(this.startTime);
-      // if (this.endTime === '00:00:00' || this.getSeconds(this.startTime) > this.getSeconds(this.endTime) 
-      //     || clipDuration > this.shortestDuration!) {
-      
-      //   this.toastMessage = 'Please enter a valid start and end time';
-      //   return true;
+        } else if (this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) {
 
-      // } else if (this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) {
-
-      //   this.toastMessage = 'Please enter a valid output path';
-      //   return true;
-      
-      // } else {
-      //   return false;
-      // }
-
-      return false;
-
+          this.toastMessage = 'Please enter a valid output path';
+          hasError = true;
+          return;
+        } 
+      });
+      return hasError;
     },
 
     generateSegments() {
