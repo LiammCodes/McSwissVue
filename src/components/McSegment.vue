@@ -3,7 +3,7 @@
     <div class="space-y-2 w-full">
       <div class="font-bold flex pb-2 justify-between">
         <span class="text-base font-bold" style="word-break: break-all;">{{ segment.name }}</span>
-        <button class="btn hover:btn-error btn-xs" @click="handleDeleteSegmentClicked">
+        <button class="btn hover:btn-error btn-xs px-1" @click="handleDeleteSegmentClicked">
           <x-mark-icon class="w-4 h-4"/>
         </button>
       </div>

@@ -119,11 +119,7 @@ export default defineComponent({
         file: null as null | File,
         thumbnailPath: '' as string
       } as FileData,
-      segments: [{
-        name: 'TestSegment_a.mp4',
-        startTime: '00:00:00',
-        endTime: '00:00:00',
-      }] as Segment[],
+      segments: [] as Segment[],
       shortestDuration: null as null | number,
       showBinaryModal: false as boolean,
       showFileUpload: true as boolean,
@@ -136,7 +132,6 @@ export default defineComponent({
     this.appStore.setSelectedTool('Segment Generator');
   },
   methods: {
-
     handleOverwriteResponse(response: string): void {
       this.showBinaryModal = false;
       this.overwriteResponse = response === 'yes';
@@ -159,6 +154,7 @@ export default defineComponent({
       this.files.push(...uploadedFiles);
       this.showFileUpload = false;
       this.selectedFile.file = this.files[0];
+      this.addSegment()
     },
 
     getSeconds,
@@ -167,7 +163,6 @@ export default defineComponent({
 
     handleFilesLoaded(fileObjects: object[]) {
       this.filesLoading = false
-      this.setSuccessToastMsg(this.segments.length)
       
       // get shortest video durration
       // (this will set the maximum allowed preview durration)
@@ -178,12 +173,12 @@ export default defineComponent({
       this.selectedFile = file;
     },
 
-    setSuccessToastMsg(numFiles: number) {
-      if (numFiles === 1) {
-        this.successToastMessage = numFiles + ' Segment Generated Successfully  🎉'
+    setSuccessToastMsg(numSegments: number) {
+      if (numSegments === 1) {
+        this.successToastMessage = numSegments + ' Segment Generated Successfully  🎉'
       } 
       else {
-        this.successToastMessage = numFiles + ' Segments Generated Successfully  🎉'
+        this.successToastMessage = numSegments + ' Segments Generated Successfully  🎉'
       }
     },
 
@@ -197,12 +192,11 @@ export default defineComponent({
     addSegment() {
       // set new id for segment
       this.segments.push({
-        name: 'Set it later',
+        name: this.removeExtension(this.files[0].name) + "_" + String.fromCharCode(this.segments.length+97) + this.outputFileExtension,
         startTime: '00:00:00',
         endTime: '00:00:00',
         id: this.segments.length
       });
-      console.log(this.segments);
     },
 
     deleteSegment(id: number) {
@@ -214,7 +208,6 @@ export default defineComponent({
     },
 
     errorsFlagged(): boolean {
-      // TODO: Loop through every segment and check the following
       let hasError = false;
       this.segments.forEach((segment: Segment) => {
         const clipDuration = this.getSeconds(segment.endTime) - this.getSeconds(segment.startTime);
@@ -289,6 +282,7 @@ export default defineComponent({
     },
 
     handleGenerationComplete(code: any) {
+      this.setSuccessToastMsg(this.segments.length)
       this.generating = false;
       this.progress = 0;
 
