@@ -27,6 +27,7 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
+  mainWindow.webContents.openDevTools({ mode: 'right'});
 }
 
 function clearTempFiles() {

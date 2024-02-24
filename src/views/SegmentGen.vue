@@ -7,6 +7,7 @@
     @bad-extension="handleBadExtension"
   />
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
+    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-8 gap-2 h-full" style="overflow-x: hidden;">
       <!-- file grid col -->
       <mc-file-grid class="col-span-4" :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
@@ -99,6 +100,7 @@ export default defineComponent({
   },
   data() {
     return {
+      binaryModalResolver: null as (() => void) | null,
       defaultSegment: {
         name: 'Set it later',
         startTime: '00:00:00',
@@ -123,6 +125,7 @@ export default defineComponent({
         endTime: '00:00:00',
       }] as Segment[],
       shortestDuration: null as null | number,
+      showBinaryModal: false as boolean,
       showFileUpload: true as boolean,
       successToastMessage: '' as string,
       toast: {} as Toast,
@@ -133,6 +136,17 @@ export default defineComponent({
     this.appStore.setSelectedTool('Segment Generator');
   },
   methods: {
+
+    handleOverwriteResponse(response: string): void {
+      this.showBinaryModal = false;
+      this.overwriteResponse = response === 'yes';
+      
+      // Resolve the promise to signal that the modal is closed
+      if (this.binaryModalResolver) {
+        this.binaryModalResolver();
+      }
+    },
+
     handleBadExtension() {
       this.$emit('toggle-toast', {
           message: 'Only .mp4, .mov, and .m4v files are allowed',
@@ -221,8 +235,76 @@ export default defineComponent({
       return hasError;
     },
 
-    generateSegments() {
+    fileAlreadyExists,
+    parseFFmpegProgress,
+    removeExtension,
 
+    async generateSegments() {
+      // check if any new files already exist
+      if (this.fileAlreadyExists(this.files, this.outputFilePath, this.outputFileExtension)) {
+        // Toggle the modal
+        this.showBinaryModal = true;
+
+        // Wait for the modal to close before triggering the action
+        await new Promise((resolve) => {
+          // @ts-ignore
+          this.binaryModalResolver = resolve;
+        });
+      } 
+      
+      this.segments.forEach((segment: Segment, i: number) => {
+        const ffmpegCommand = [
+          // @ts-ignore
+          '-i', this.files[0].path,
+          '-ss', segment.startTime,
+          '-to', segment.endTime,
+          '-b:v', '3000k',
+          '-progress', 'pipe:1',
+          this.path.join(this.outputFilePath, this.removeExtension(this.files[0].name) + "_" + String.fromCharCode(i+97) + this.outputFileExtension)
+        ];
+
+        this.generating = true;
+        const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand);
+        
+        if (childProcess) { // Check if childProcess is not null
+          childProcess.stdout.on('data', (data: any) => {
+            this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime);
+          });
+          childProcess.stderr.on('data', async (data: any) => {
+            const message = data.toString().trim();
+
+            if (message.includes('Overwrite? [y/N]')) {
+              const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+              childProcess.stdin.write(overwrite + '\n');
+            } 
+          });
+          childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
+          childProcess.on('error', (err: any) => {
+            // pass
+          });
+        } else {
+          console.error('Failed to spawn FFMpeg process.');
+        }
+      });
+    },
+
+    handleGenerationComplete(code: any) {
+      this.generating = false;
+      this.progress = 0;
+
+      if (this.overwriteResponse || this.overwriteResponse === null) {
+        this.toastMessage = this.successToastMessage;
+      } else {
+        this.toastMessage = 'Preview generation aborted.';
+      }
+
+      this.toast = {
+        message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
+        kind: 'alert-success',
+        timeout: 5000,
+      }
+      this.$emit('toggle-toast', this.toast);
+      new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
     },
     
     async handleGenerate() {
