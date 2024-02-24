@@ -85,6 +85,7 @@ import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 export default defineComponent({
   name: 'SegmentGen',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McSegment, PlusCircleIcon },
+  emits: ['toggle-toast'],
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();

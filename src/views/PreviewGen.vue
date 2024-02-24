@@ -81,6 +81,7 @@ import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 export default defineComponent({
   name: 'PreviewGen',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McTimeInput },
+  emits: ['toggle-toast'],
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
@@ -123,8 +124,6 @@ export default defineComponent({
       successToastMessage: '' as string,
     }
   },
-  watch:{},
-  emits: ['toggle-toast'],
   mounted() {
     this.appStore.setSelectedTool('Preview Generator');
   },
