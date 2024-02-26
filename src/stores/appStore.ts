@@ -1,21 +1,21 @@
 import { defineStore } from 'pinia';
-import { Tool } from '../types/Types';
+import { View } from '../types/Types';
 
 function loadStoredTheme(): string {
   const storedTheme = localStorage.getItem('theme');
   return storedTheme ? JSON.parse(storedTheme).storedTheme : 'dark';
 }
 
-function loadStoredTool(): Tool {
-  const storedTool = localStorage.getItem('tool');
-  return storedTool ? JSON.parse(storedTool).storedTool : 'Preview Generator';
+function loadStoredView(): View {
+  const storedView = localStorage.getItem('view');
+  return storedView ? JSON.parse(storedView).storedView : 'Preview Generator';
 }
 
 export const useAppStore = defineStore({
   id: 'appStore',
   state: () => ({
-    selectedTool: loadStoredTool() as Tool,
-    theme: loadStoredTheme() as string,
+    selectedView: loadStoredView() as View,
+    theme: loadStoredTheme(),
   }),
   getters: {
     themeType(){
@@ -28,9 +28,9 @@ export const useAppStore = defineStore({
     }
   },
   actions: {
-    setSelectedTool(newSelectedTool: Tool){
-      this.selectedTool = newSelectedTool;
-      localStorage.setItem('tool', JSON.stringify({ storedTool: newSelectedTool }));
+    setSelectedView(newSelectedView: View){
+      this.selectedView = newSelectedView;
+      localStorage.setItem('view', JSON.stringify({ storedView: newSelectedView }));
     },
     setTheme(newTheme: string){
       this.theme = newTheme;

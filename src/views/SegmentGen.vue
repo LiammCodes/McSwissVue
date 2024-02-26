@@ -130,9 +130,15 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.appStore.setSelectedTool('Segment Generator');
+    this.appStore.setSelectedView('Segment Generator');
   },
   methods: {
+    fileAlreadyExists,
+    getSeconds,
+    getShortestVideoDuration,
+    parseFFmpegProgress,
+    removeExtension,
+    
     handleOverwriteResponse(response: string): void {
       this.showBinaryModal = false;
       this.overwriteResponse = response === 'yes';
@@ -145,10 +151,10 @@ export default defineComponent({
 
     handleBadExtension() {
       this.$emit('toggle-toast', {
-          message: 'Only .mp4, .mov, and .m4v files are allowed',
-          kind: 'alert-error',
-          timeout: 3000
-        })
+        message: 'Only .mp4, .mov, and .m4v files are allowed',
+        kind: 'alert-error',
+        timeout: 3000
+      })
     },
 
     handleFilesUploaded(uploadedFiles: File[]){
@@ -157,10 +163,6 @@ export default defineComponent({
       this.selectedFile.file = this.files[0];
       this.addSegment()
     },
-
-    getSeconds,
-    
-    getShortestVideoDuration,
 
     handleFilesLoaded(fileObjects: object[]) {
       this.filesLoading = false
@@ -229,13 +231,18 @@ export default defineComponent({
       return hasError;
     },
 
-    fileAlreadyExists,
-    parseFFmpegProgress,
-    removeExtension,
+    anySegmentExists(): boolean {
+      for (const segment of this.segments) {
+        if (fileAlreadyExists(segment.name, this.outputFilePath, this.outputFileExtension)) {
+          return true;
+        }
+      }
+      return false;
+    },
 
     async generateSegments() {
       // check if any new files already exist
-      if (this.fileAlreadyExists(this.files, this.outputFilePath, this.outputFileExtension)) {
+      if (this.anySegmentExists()) {
         // Toggle the modal
         this.showBinaryModal = true;
 
@@ -299,7 +306,7 @@ export default defineComponent({
         timeout: 5000,
       }
       this.$emit('toggle-toast', this.toast);
-      new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
+      new window.Notification('Segment Generation Complete', { body: this.successToastMessage });
     },
     
     async handleGenerate() {

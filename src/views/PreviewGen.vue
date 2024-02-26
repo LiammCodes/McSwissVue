@@ -125,7 +125,7 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.appStore.setSelectedTool('Preview Generator');
+    this.appStore.setSelectedView('Preview Generator');
   },
   methods: {
     handleBadExtension() {
@@ -237,12 +237,21 @@ export default defineComponent({
         timeout: 5000,
       }
       this.$emit('toggle-toast', this.toast);
-      new window.Notification('Previews Complete', { body: `child process close all stdio with code ${code}` });
+      new window.Notification('Preview Generation Complete', { body: this.successToastMessage });
+    },
+
+    anyPrevExists(): boolean {
+      for (const file of this.files) {
+        if (fileAlreadyExists(removeExtension(file.name), this.outputFilePath, this.outputFileExtension)) {
+          return true;
+        }
+      }
+      return false;
     },
 
     async generatePreviews() {
       // check if any new files already exist
-      if (this.fileAlreadyExists(this.files, this.outputFilePath, this.outputFileExtension)) {
+      if (this.anyPrevExists()) {
         // Toggle the modal
         this.showBinaryModal = true;
 

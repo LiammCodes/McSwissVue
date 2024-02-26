@@ -10,7 +10,7 @@
           </label>
         </div> 
         <h1 class="text-center text-lg font-bold pl-2">
-          {{ selectedTool }}
+          {{ selectedView }}
         </h1>
         <div class="flex justify-end flex-1 px-2">
           <div class="flex items-stretch">
@@ -46,21 +46,19 @@
         <div class="space-y-1">
           <li class="pb-10">
             <a @click="goToWebsite" target="_blank" class="bg-base-100">
-              <img v-if="appStore.themeType === 'dark'" src="../assets/img/mcintyreIconDark.png" class="thumbnail" style="max-width: 45px; padding-right: 5px;" />
-              <img v-else src="../assets/img/mcintyreIconLight.png" style="max-width: 45px; padding-right: 5px;" />
+              <img v-if="appStore.themeType === 'dark'" src="../assets/img/mcintyreIconDark.png" class="thumbnail" style="max-width: 45px; padding-right: 5px;" alt="Dark App Logo" />
+              <img v-else src="../assets/img/mcintyreIconLight.png" style="max-width: 45px; padding-right: 5px;" alt="Light App Logo" />
               <p class="text-lg font-bold">McSwiss</p>
             </a>
           </li>
-          <li @click="handleNavBtnClick(tools.previewGen)">
-            <div :class="selectedTool === tools.previewGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-                {{ tools.previewGen }}
+          <li @click="handleNavBtnClick(views.previewGen)">
+            <div :class="selectedView === views.previewGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
+              {{ views.previewGen }}
             </div>
           </li>
-          <li @click="handleNavBtnClick(tools.segmentGen)">
-            <div :class="selectedTool === tools.segmentGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              <router-link to="/segment-gen">
-                {{ tools.segmentGen }}
-              </router-link>
+          <li @click="handleNavBtnClick(views.segmentGen)">
+            <div :class="selectedView === views.segmentGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
+              {{ views.segmentGen }}
             </div>
           </li>
 
@@ -69,11 +67,11 @@
           <li><a>Video Converter</a></li>
         </div>
         <div>
-          <li>
-            <a>
+          <li @click="handleNavBtnClick(views.settings)">
+            <div :class="selectedView === views.settings ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
               <adjustments-horizontal-icon class="h-5 w-5 ml-1"></adjustments-horizontal-icon>
-              Settings
-            </a>
+              {{ views.settings }}
+            </div>
           </li>
         </div>
       </ul>
@@ -85,7 +83,7 @@
 import { defineComponent } from 'vue';
 import { SwatchIcon, ChevronDownIcon, AdjustmentsHorizontalIcon } from '@heroicons/vue/20/solid';
 import { useAppStore } from '../stores/appStore';
-import { Tool } from '../types/Types';
+import { View } from '../types/Types';
  
 export default defineComponent({
   name: 'McDrawer',
@@ -104,20 +102,20 @@ export default defineComponent({
       drawerOpen: true as boolean,
       logo: "../assets/img/mcintyreIconDark.png" as string,
       theme: "" as string,
-      selectedTool: "Preview Generator" as Tool,
-      tools: {
-        previewGen: "Preview Generator" as Tool,
-        segmentGen: "Segment Generator" as Tool,
-        thumbnailGen: "Thumbnail Generator" as Tool,
-        hypThumbnailGen: "Hyper Thumbnail Generator" as Tool,
-        transcriptGen: "Transcription Generator" as Tool,
-        videoConvertor: "Video Converter" as Tool,
+      selectedView: "Preview Generator" as View,
+      views: {
+        previewGen: "Preview Generator" as View,
+        segmentGen: "Segment Generator" as View,
+        thumbnailGen: "Thumbnail Generator" as View,
+        hypThumbnailGen: "Hyper Thumbnail Generator" as View,
+        transcriptGen: "Transcription Generator" as View,
+        videoConvertor: "Video Converter" as View,
+        settings: "Settings" as View,
       }
     }
   },
   mounted(){
-    console.log("hello");
-    this.selectedTool = this.appStore.selectedTool;
+    this.selectedView = this.appStore.selectedView;
   },
   computed: {
     renderLogo(){
@@ -135,18 +133,12 @@ export default defineComponent({
     goToWebsite() {
       // @ts-ignore
       require('electron').shell.openExternal("https://mcintyre.ca/");
-    },
-    selectedToolClass(selectedTool: Tool): string {
-      if (this.appStore.selectedTool === selectedTool) {
-        return 'bg-primary';
-      } else {
-        return '';
-      }
-    },
-    handleNavBtnClick(tool: Tool){
+    }, 
+    handleNavBtnClick(view: View) {
       this.drawerOpen = false;
-      this.selectedTool = tool;
-      this.$router.push({ name: tool});
+      this.selectedView = view;
+      this.appStore.setSelectedView(view);
+      this.$router.push({ name: view});
     },
   }
 });

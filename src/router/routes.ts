@@ -1,6 +1,7 @@
 import { RouteRecordRaw } from 'vue-router';
 import PreviewGen from '../views/PreviewGen.vue';
 import SegmentGen from '../views/SegmentGen.vue';
+import SettingsView from '../views/SettingsView.vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -13,6 +14,11 @@ const routes: RouteRecordRaw[] = [
     name: 'Segment Generator',
     component: SegmentGen,
   },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: SettingsView,
+  }
 ];
 
 export default routes;

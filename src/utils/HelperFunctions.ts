@@ -36,14 +36,13 @@ export function removeExtension(filename: string) {
   return baseName;
 }
 
-export function fileAlreadyExists(files: File[], outputFilePath: string, fileExtension: string): boolean {
-  for (const file of files) {
-    const newFile = path.join(outputFilePath, (removeExtension(file.name) + " Prev" + fileExtension))
-    if (fs.existsSync(newFile)) {
-      return true;
-    }
+export function fileAlreadyExists(fileName: string, outputFilePath: string, fileExtension: string): boolean {
+  const newFile = path.join(outputFilePath, (fileName + " Prev" + fileExtension))
+  if (fs.existsSync(newFile)) {
+    return true;
+  } else {
+    return false;
   }
-  return false;
 }
 
 export function getShortestVideoDuration(fileObjects: object[]) {

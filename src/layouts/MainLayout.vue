@@ -36,7 +36,7 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.$router.push({name: this.appStore.selectedTool})
+    this.$router.push({name: this.appStore.selectedView})
     console.log(this.appStore.theme);
   },
   methods: {
