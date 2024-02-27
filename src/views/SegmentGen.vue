@@ -253,6 +253,9 @@ export default defineComponent({
         });
       } 
       
+      // Variable to keep track of the number of completed segments
+      let completedSegments = 0;
+
       this.segments.forEach((segment: Segment, i: number) => {
         const ffmpegCommand = [
           // @ts-ignore
@@ -279,13 +282,19 @@ export default defineComponent({
               childProcess.stdin.write(overwrite + '\n');
             } 
           });
-          childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
+          childProcess.on('close', (code: any) => {
+            completedSegments++;
+            if (completedSegments === this.segments.length) {
+              this.handleGenerationComplete(code);
+            }
+          });
           childProcess.on('error', (err: any) => {
             // pass
           });
         } else {
           console.error('Failed to spawn FFMpeg process.');
         }
+        this.progress = 0;
       });
     },
 
