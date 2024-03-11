@@ -114,6 +114,12 @@ export default defineComponent({
       outputFilePath: 'None' as string,
       outputFileExtension: '.mp4' as string,
       overwriteResponse: null as null | boolean,
+
+      largestEndTime: '' as string,
+      smallestStartTime: '' as string,
+
+      largestTimeDenominator: null as null | number,
+
       progress: 0 as number,
       selectedFile: {
         bitrate: '' as string,
@@ -127,8 +133,15 @@ export default defineComponent({
       showFileUpload: true as boolean,
       successToastMessage: '' as string,
       toast: {} as Toast,
-      toastMessage: '' as string
+      toastMessage: '' as string,
     }
+  },
+  watch: {
+    // progress(oldVal: number, newVal: number) {
+    //   if (newVal < oldVal) {
+    //     this.progress = oldVal;
+    //   }
+    // }
   },
   mounted() {
     this.appStore.setSelectedView('Segment Generator');
@@ -278,7 +291,11 @@ export default defineComponent({
         
         if (childProcess) { // Check if childProcess is not null
           childProcess.stdout.on('data', (data: any) => {
-            this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime);
+
+            if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime)) {
+              this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime);
+            }
+
           });
           childProcess.stderr.on('data', async (data: any) => {
             const message = data.toString().trim();
