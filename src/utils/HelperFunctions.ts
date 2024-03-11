@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { FileData } from '../types/Types';
 
 // breaks down time stamp into total number of seconds
 export function getSeconds(time: string | null){
@@ -15,6 +16,7 @@ export function getSeconds(time: string | null){
 
 // returns progress percent
 export function parseFFmpegProgress(data: string, startTime: string, endTime: string): number {
+  console.log(getSeconds(parseOutTime(data)) + " / " + (getSeconds(endTime) - getSeconds(startTime)))
   return (getSeconds(parseOutTime(data)) / (getSeconds(endTime) - getSeconds(startTime))) * 100;
 }
 
@@ -53,4 +55,18 @@ export function getShortestVideoDuration(fileObjects: object[]) {
     } 
   })
   return shortestDuration;
+}
+
+export function metaDataMissing(selectedFile: FileData): boolean {
+
+  // bitrate: '' as string,
+  // duration: '' as string,
+  // file: null as null | File,
+  // thumbnailPath: '' as string
+
+  if (selectedFile.bitrate == '' || selectedFile.duration == '' || selectedFile.thumbnailPath == '') {
+    return true;
+  } else {
+    return false;
+  }
 }

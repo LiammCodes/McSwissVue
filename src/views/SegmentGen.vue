@@ -72,6 +72,7 @@ import {
   fileAlreadyExists,
   getSeconds,
   getShortestVideoDuration,
+  metaDataMissing,
   parseFFmpegProgress,
   removeExtension
 } from '../utils/HelperFunctions';
@@ -131,11 +132,16 @@ export default defineComponent({
   },
   mounted() {
     this.appStore.setSelectedView('Segment Generator');
+    if (!this.showFileUpload && !this.filesLoading && this.metaDataMissing(this.selectedFile)) {
+      this.handleFilesUploaded;
+      console.log("missing data, trying again");
+    }
   },
   methods: {
     fileAlreadyExists,
     getSeconds,
     getShortestVideoDuration,
+    metaDataMissing,
     parseFFmpegProgress,
     removeExtension,
     
@@ -276,7 +282,6 @@ export default defineComponent({
           });
           childProcess.stderr.on('data', async (data: any) => {
             const message = data.toString().trim();
-
             if (message.includes('Overwrite? [y/N]')) {
               const overwrite: string = this.overwriteResponse ? 'y' : 'n';
               childProcess.stdin.write(overwrite + '\n');
