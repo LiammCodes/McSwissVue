@@ -58,12 +58,6 @@ export function getShortestVideoDuration(fileObjects: object[]) {
 }
 
 export function metaDataMissing(selectedFile: FileData): boolean {
-
-  // bitrate: '' as string,
-  // duration: '' as string,
-  // file: null as null | File,
-  // thumbnailPath: '' as string
-
   if (selectedFile.bitrate == '' || selectedFile.duration == '' || selectedFile.thumbnailPath == '') {
     return true;
   } else {

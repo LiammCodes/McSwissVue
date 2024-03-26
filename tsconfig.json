@@ -7,11 +7,16 @@
     "strict": true,
     "jsx": "preserve",
     "resolveJsonModule": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
     "isolatedModules": true,
     "esModuleInterop": true,
-    "lib": ["ESNext", "DOM"],
+    "lib": [
+      "es2016",
+      "dom"
+    ],
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": false  
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]

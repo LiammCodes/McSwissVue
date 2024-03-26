@@ -40,12 +40,12 @@ export default defineComponent({
   setup() {
     const ipcRenderer = require('electron').ipcRenderer;
     const path = require('path');
-    const pathToFfmpeg = require('ffmpeg-static');
-    const pathToFfprobe = require('ffprobe-static');
+    const ffmpeg = require('ffmpeg-static');
+    const ffprobe = require('ffprobe-static').path;
     const spawn = require('child_process').spawn;
     const fs = require('fs');
 
-    return { ipcRenderer, path, pathToFfmpeg, pathToFfprobe, spawn, fs }
+    return { ipcRenderer, path, ffmpeg, ffprobe, spawn, fs }
   },
 
   data() {
@@ -53,6 +53,8 @@ export default defineComponent({
       fileObjects: [] as FileData[],
       filesLoading: true as boolean,
       tempPath: '' as string,
+      ffmpegPath: '' as string,
+      ffprobePath: '' as string,
     }
   },
 
@@ -63,11 +65,10 @@ export default defineComponent({
     this.selectFirstFile();
     this.filesLoaded();
   },
-
   methods: {
     selectFirstFile() {
       const fileButtons = this.$refs.fileBtns as HTMLElement[]; // Type assertion
-      if (fileButtons.length > 0) {
+      if (fileButtons && fileButtons.length > 0) {
         fileButtons[0].focus();
       }
     },
@@ -85,20 +86,19 @@ export default defineComponent({
 
     async buildFileObjects(files: File[]) {
       this.filesLoading = true;
+      console.log(files)
       try {
         // Use Promise.all to process all files concurrently
         const fileProcessingPromises = files.map(async (file: File) => {
           const metadata = await this.getMetaData(file);
           const thumbnailPath = await this.generateThumbnail(file, this.calculateTimeMidpoint(metadata.duration));
-
           const fileObj = {
             bitrate: metadata.bitrate,
             duration: metadata.duration,
             file: file,
             thumbnailPath: thumbnailPath,
-            size: metadata.size as string,
+            size: metadata.size,
           }
-
           return fileObj;
         });
 
@@ -107,7 +107,7 @@ export default defineComponent({
         this.fileObjects = fileObjects;
         
       } catch (error) {
-        // console.error('Error:', error);
+        console.error('Error:', error);
       }
     },
 
@@ -115,7 +115,7 @@ export default defineComponent({
       return new Promise<string>((resolve, reject) => {
         const thumbnailFileName = this.path.basename(file.name, this.path.extname(file.name)) + ".png";
         // @ts-ignore
-        const childProcess = this.spawn(this.pathToFfmpeg, ['-y', '-ss', cutTime, '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
+        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ['-y', '-ss', cutTime, '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
         
         childProcess.on('close', (code: any) => {
           // console.log("created the thumbnail: " + thumbnailFileName);
@@ -124,7 +124,7 @@ export default defineComponent({
         
         childProcess.stderr.on('data', (data: any) => {
           // uncomment to log ffmpeg data to console
-          // console.log(`FFMpeg stderr: ${data}`);
+          console.log(`FFMpeg stderr: ${data}`);
         });
       });
     },
@@ -136,7 +136,8 @@ export default defineComponent({
           duration: '' as string,
           size: '' as string,
         };
-        const childProcess = this.spawn(this.pathToFfprobe.path, [
+        // @ts-ignore
+        const childProcess = this.spawn(this.ffprobe.replace('app.asar', 'app.asar.unpacked'), [
           '-i', 
           file.path + '', 
           '-loglevel', 

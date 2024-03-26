@@ -6,6 +6,7 @@
     @files-uploaded="handleFilesUploaded" 
     @bad-extension="handleBadExtension"
   />
+  
   <div v-else class="m-2 h-full" style="overflow-x: hidden;">
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-8 gap-2 h-full" style="overflow-x: hidden;">
@@ -91,14 +92,14 @@ export default defineComponent({
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
     const os = require('os');
-    const pathToFfmpeg = require('ffmpeg-static');
-    const pathToFfprobe = require('ffprobe-static');
+    const ffmpeg = require('ffmpeg-static');
+    const ffprobe = require('ffprobe-static');
     const spawn = require('child_process').spawn;
     const ipcRenderer = require('electron').ipcRenderer;
     const dialog = require('electron').dialog;
     const path = require('path');
     const fs = require('fs');
-    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, pathToFfmpeg, pathToFfprobe, spawn }
+    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
   },
   data() {
     return {
@@ -136,13 +137,7 @@ export default defineComponent({
       toastMessage: '' as string,
     }
   },
-  watch: {
-    // progress(oldVal: number, newVal: number) {
-    //   if (newVal < oldVal) {
-    //     this.progress = oldVal;
-    //   }
-    // }
-  },
+  watch: {},
   mounted() {
     this.appStore.setSelectedView('Segment Generator');
     if (!this.showFileUpload && !this.filesLoading && this.metaDataMissing(this.selectedFile)) {
@@ -176,11 +171,14 @@ export default defineComponent({
       })
     },
 
-    handleFilesUploaded(uploadedFiles: File[]){
-      this.files.push(...uploadedFiles);
-      this.showFileUpload = false;
-      this.selectedFile.file = this.files[0];
-      this.addSegment()
+    handleFilesUploaded(uploadedFiles: File[]) {
+      // ensures file data is available for metadata
+      process.nextTick(() => {
+        this.files.push(...uploadedFiles);
+        this.showFileUpload = false;
+        this.selectedFile.file = this.files[0];
+        this.addSegment()
+      });
     },
 
     handleFilesLoaded(fileObjects: object[]) {
@@ -287,15 +285,18 @@ export default defineComponent({
         ];
 
         this.generating = true;
-        const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand);
+        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
         
         if (childProcess) { // Check if childProcess is not null
           childProcess.stdout.on('data', (data: any) => {
-
+            /* 
+              This is required for any tools that run more than one child process at once (aka any tools that accept more than one video)
+              this ensures the progress bar doesn't ever go down instead of up... not an ideal solution but the progress handling in 
+              ffmpeg is wack :(
+            */
             if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime)) {
               this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime);
             }
-
           });
           childProcess.stderr.on('data', async (data: any) => {
             const message = data.toString().trim();

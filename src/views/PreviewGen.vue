@@ -86,14 +86,14 @@ export default defineComponent({
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
     const os = require('os');
-    const pathToFfmpeg = require('ffmpeg-static');
-    const pathToFfprobe = require('ffprobe-static');
+    const ffmpeg = require('ffmpeg-static');
+    const ffprobe = require('ffprobe-static');
     const spawn = require('child_process').spawn;
     const ipcRenderer = require('electron').ipcRenderer;
     const dialog = require('electron').dialog;
     const path = require('path');
     const fs = require('fs');
-    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, pathToFfmpeg, pathToFfprobe, spawn }
+    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
   },
   data(){
     return {
@@ -135,10 +135,14 @@ export default defineComponent({
           timeout: 3000
         })
     },
-    handleFilesUploaded(uploadedFiles: File[]){
-      this.files.push(...uploadedFiles);
-      this.showFileUpload = false;
-      this.selectedFile.file = this.files[0];
+    handleFilesUploaded(uploadedFiles: File[]) {
+      process.nextTick(() => {
+        console.log(uploadedFiles)
+        this.files.push(...uploadedFiles);
+        console.log(this.files);
+        this.showFileUpload = false;
+        this.selectedFile.file = this.files[0];
+      });
     },
 
     handleFileSelected(file: any) {
@@ -273,7 +277,7 @@ export default defineComponent({
         ];
 
         this.generating = true;
-        const childProcess = this.spawn(this.pathToFfmpeg, ffmpegCommand);
+        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
         
         if (childProcess) { // Check if childProcess is not null
           childProcess.stdout.on('data', (data: any) => {
@@ -289,7 +293,7 @@ export default defineComponent({
           });
           childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
           childProcess.on('error', (err: any) => {
-            // pass
+            // console.log(err)
           });
         } else {
           console.error('Failed to spawn FFMpeg process.');

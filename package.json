@@ -1,8 +1,11 @@
 {
   "name": "mcswiss",
+  "author": "Liam Codes",
+  "description": "A video editing toolbox",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./electron.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -19,8 +22,6 @@
     "@vueuse/core": "^10.4.1",
     "app-root-dir": "^1.0.2",
     "child_process": "^1.0.2",
-    "electron": "^24.0.0",
-    "electron-builder": "^23.6.0",
     "electron-is-packaged": "^1.0.2",
     "electron-root-path": "^1.1.0",
     "ffmpeg-static": "^5.1.0",
@@ -35,6 +36,8 @@
     "vue-toastification": "^2.0.0-rc.5"
   },
   "devDependencies": {
+    "electron": "^24.0.0",
+    "electron-builder": "^23.6.0",
     "@types/fluent-ffmpeg": "^2.1.21",
     "@vitejs/plugin-vue": "^4.0.0",
     "autoprefixer": "^10.4.16",
@@ -46,10 +49,13 @@
     "vue-tsc": "^1.0.11"
   },
   "build": {
-    "appId": "com.yourcompany.your-app-name",
-    "productName": "Your App Name",
+    "appId": "com.liamcodes.mcswiss",
+    "productName": "McSwiss",
     "directories": {
       "output": "build"
+    },
+    "extraMetadata": {
+      "main": "./electron.cjs"
     },
     "extraFiles": [
       {
@@ -60,6 +66,7 @@
         ]
       }
     ],
+    "extends": null,
     "files": [
       "dist/**/*",
       "electron.cjs"
