@@ -39,13 +39,14 @@ export default defineComponent({
 
   setup() {
     const ipcRenderer = require('electron').ipcRenderer;
+    const app = require('electron');
     const path = require('path');
     const ffmpeg = require('ffmpeg-static');
     const ffprobe = require('ffprobe-static').path;
     const spawn = require('child_process').spawn;
     const fs = require('fs');
 
-    return { ipcRenderer, path, ffmpeg, ffprobe, spawn, fs }
+    return { app, ipcRenderer, path, ffmpeg, ffprobe, spawn, fs }
   },
 
   data() {
@@ -59,6 +60,7 @@ export default defineComponent({
   },
 
   async mounted() {
+    console.log(this.app);
     await this.setTempDirectory();
     await this.buildFileObjects(this.files);
     this.handleFileSelection(this.fileObjects[0])
@@ -80,13 +82,13 @@ export default defineComponent({
 
     async setTempDirectory() {
       await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
-        this.tempPath = this.path.join(result, '/src/temp');
+        this.tempPath = this.path.join(result);
+        console.log(this.tempPath)
       })
     },
 
     async buildFileObjects(files: File[]) {
       this.filesLoading = true;
-      console.log(files)
       try {
         // Use Promise.all to process all files concurrently
         const fileProcessingPromises = files.map(async (file: File) => {
@@ -119,7 +121,7 @@ export default defineComponent({
         
         childProcess.on('close', (code: any) => {
           // console.log("created the thumbnail: " + thumbnailFileName);
-          resolve(this.path.join('src/temp/' + thumbnailFileName));
+          resolve(this.path.join(this.tempPath, thumbnailFileName));
         });
         
         childProcess.stderr.on('data', (data: any) => {

@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Notification, ipcMain, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const isDev = process.env.NODE_ENV !== 'production';
+const isDev = !app.isPackaged;
 
 const NOTIFICATION_TITLE = 'Basic Notification';
 const NOTIFICATION_BODY = 'Notification from the Main process';
@@ -34,17 +34,20 @@ function createWindow() {
 }
 
 function clearTempFiles() {
-  const directory = "src/temp/";
+  // only necessary for dev env
+  if (isDev) {
+    const directory = "src/temp/";
 
-  fs.readdir(directory, (err, files) => {
-    if (err) throw err;
-
-    for (const file of files) {
-      fs.unlink(path.join(directory, file), (err) => {
-        if (err) throw err;
-      });
-    }
-  });
+    fs.readdir(directory, (err, files) => {
+      if (err) throw err;
+  
+      for (const file of files) {
+        fs.unlink(path.join(directory, file), (err) => {
+          if (err) throw err;
+        });
+      }
+    });
+  }
 }
 
 app.whenReady().then(() => {
@@ -52,7 +55,7 @@ app.whenReady().then(() => {
   createWindow();
 
   ipcMain.handle('get-app-path', async (event) => {
-    const result = app.getAppPath();
+    const result = isDev ? 'src/temp' : app.getPath("temp");
     return result;
   })
 
@@ -87,15 +90,6 @@ app.whenReady().then(() => {
 }).then(showNotification);
 
 app.on('window-all-closed', () => {
-  // if (process.platform !== 'darwin') {
-  //   fs.unlink(directoryPath + fileName, (err) => {
-  //     if (err) {
-  //         throw err;
-  //     }
-  //     console.log("Delete File successfully.");
-  //   });
-  //   app.quit();
-  // }
   clearTempFiles();
   app.quit();
 });

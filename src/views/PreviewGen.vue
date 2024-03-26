@@ -137,9 +137,7 @@ export default defineComponent({
     },
     handleFilesUploaded(uploadedFiles: File[]) {
       process.nextTick(() => {
-        console.log(uploadedFiles)
         this.files.push(...uploadedFiles);
-        console.log(this.files);
         this.showFileUpload = false;
         this.selectedFile.file = this.files[0];
       });

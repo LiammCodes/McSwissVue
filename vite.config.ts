@@ -1,8 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import renderer from 'vite-plugin-electron-renderer'
-import path from 'path' // Import path module to resolve file paths
-
+import path from 'path';
 
 export default defineConfig({
   optimizeDeps: {

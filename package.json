@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "electron:dev": "npm run dev & electron ./electron.cjs",
+    "electron:dev": "npm run dev & electron ./electron.cjs --dev",
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
