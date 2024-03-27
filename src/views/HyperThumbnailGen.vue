@@ -1,7 +1,7 @@
 <template>
   <mc-file-upload 
     v-if="showFileUpload" 
-    action="create previews for" 
+    action="create thumbnails for" 
     @files-uploaded="handleFilesUploaded" 
     @bad-extension="handleBadExtension"
   />
@@ -25,14 +25,8 @@
         <div class="space-y-2">
           <div class="flex justify-end items-center space-x-2">
             <mc-time-input
-              v-model="startTime"
+              v-model="time"
               label="Start timestamp"
-            />
-          </div>
-          <div class="flex justify-end items-center space-x-2">
-            <mc-time-input
-              v-model="endTime"
-              label="End timestamp"
             />
           </div>
         </div>
@@ -48,7 +42,7 @@
       </div>
       <div class="py-3" v-else>
         <div class="mb-2 text-base font-medium flex justify-between">
-          <span>Generating Previews...</span>
+          <span>Generating Thumbnails...</span>
           <span>{{ Math.floor(progress) }}%</span>
         </div>
         <div class="w-full bg-base-100 rounded-full h-2.5">
@@ -79,7 +73,7 @@ import McMetaDataColumn from '../components/McMetaDataColumn.vue';
 
 
 export default defineComponent({
-  name: 'PreviewGen',
+  name: 'HyperThumbnailGen',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McTimeInput },
   emits: ['toggle-toast'],
   setup() {
@@ -98,13 +92,12 @@ export default defineComponent({
   data(){
     return {
       binaryModalResolver: null as (() => void) | null,
-      endTime: '00:00:00' as string,
       errorMessage: '' as string,
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       generating: false as boolean,
       outputFilePath: 'None' as string,
-      outputFileExtension: '.mp4' as string,
+      outputFileExtension: '.png' as string,
       overwriteResponse: null as null | boolean,
       progress: 0 as number,
       selectedFile: {
@@ -117,7 +110,7 @@ export default defineComponent({
       showBinaryModal: false as boolean,
       showFileUpload: true as boolean,
       showToast: false,
-      startTime: '00:00:00' as string,
+      time: '00:00:00' as string,
       tempDir: '' as string,
       toast: {} as Toast,
       toastMessage: '' as string,
@@ -125,7 +118,7 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.appStore.setSelectedView('Preview Generator');
+    this.appStore.setSelectedView('Hyper Thumbnail Generator');
   },
   methods: {
     handleBadExtension() {
@@ -159,10 +152,10 @@ export default defineComponent({
 
     setSuccessToastMsg(numFiles: number) {
       if (numFiles === 1) {
-        this.successToastMessage = numFiles + ' Preview Generated Successfully  🎉'
+        this.successToastMessage = numFiles + ' Thumbnail Generated Successfully  🎉'
       } 
       else {
-        this.successToastMessage = numFiles + ' Previews Generated Successfully  🎉'
+        this.successToastMessage = numFiles + ' Thumbnails Generated Successfully  🎉'
       }
     },
 
@@ -182,9 +175,8 @@ export default defineComponent({
     },
 
     errorsFlagged(): boolean {
-      const clipDuration = this.getSeconds(this.endTime) - this.getSeconds(this.startTime);
-      if (this.endTime === '00:00:00' || this.getSeconds(this.startTime) > this.getSeconds(this.endTime) 
-          || clipDuration > this.shortestDuration!) {
+      const clipDuration = this.getSeconds(this.time);
+      if (clipDuration > this.shortestDuration!) {
       
         this.toastMessage = 'Please enter a valid start and end time';
         return true;
@@ -211,7 +203,7 @@ export default defineComponent({
 
     async handleGenerate() {
       if (!this.errorsFlagged()) {
-        await this.generatePreviews();
+        await this.generateThumbnails();
       } else {
         this.toast = {
           message: this.toastMessage,
@@ -229,7 +221,7 @@ export default defineComponent({
       if (this.overwriteResponse || this.overwriteResponse === null) {
         this.toastMessage = this.successToastMessage;
       } else {
-        this.toastMessage = 'Preview generation aborted.';
+        this.toastMessage = 'Thumbnail generation aborted.';
       }
 
       this.toast = {
@@ -238,21 +230,21 @@ export default defineComponent({
         timeout: 5000,
       }
       this.$emit('toggle-toast', this.toast);
-      new window.Notification('Preview Generation Complete', { body: this.successToastMessage });
+      new window.Notification('Thumbnail Generation Complete', { body: this.successToastMessage });
     },
 
-    anyPrevExists(): boolean {
+    anyThumbnailsExists(): boolean {
       for (const file of this.files) {
-        if (fileAlreadyExists(removeExtension(file.name + " Prev"), this.outputFilePath, this.outputFileExtension)) {
+        if (fileAlreadyExists(removeExtension(file.name), this.outputFilePath, this.outputFileExtension)) {
           return true;
         }
       }
       return false;
     },
 
-    async generatePreviews() {
+    async generateThumbnails() {
       // check if any new files already exist
-      if (this.anyPrevExists()) {
+      if (this.anyThumbnailsExists()) {
         // Toggle the modal
         this.showBinaryModal = true;
 
@@ -263,26 +255,26 @@ export default defineComponent({
         });
       } 
 
-      this.files.forEach((file: any) => {
+      this.files.forEach((file: any, i: number) => {
         const ffmpegCommand = [
+          '-ss', this.time,
           '-i', file.path,
-          '-ss', this.startTime,
-          '-to', this.endTime,
-          '-b:v', '3000k',
-          '-progress', 'pipe:1',
-          this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFileExtension)
+          '-vframes', '1',
+          '-q:v', '2',
+          this.path.join(this.outputFilePath, this.removeExtension(file.name) + ".png")
         ];
-
+        console.log(ffmpegCommand)
         this.generating = true;
         const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
         
         if (childProcess) { // Check if childProcess is not null
           childProcess.stdout.on('data', (data: any) => {
-            this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime);
+            console.log(data)
+            // this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime);
           });
           childProcess.stderr.on('data', async (data: any) => {
             const message = data.toString().trim();
-
+            console.log(message)
             if (message.includes('Overwrite? [y/N]')) {
               const overwrite: string = this.overwriteResponse ? 'y' : 'n';
               childProcess.stdin.write(overwrite + '\n');
@@ -295,8 +287,9 @@ export default defineComponent({
         } else {
           console.error('Failed to spawn FFMpeg process.');
         }
+        this.progress = ((i+1) / this.files.length) * 100;
       });
-      
+     
     }
   }
 });

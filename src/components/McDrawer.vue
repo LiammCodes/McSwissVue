@@ -61,8 +61,12 @@
               {{ views.segmentGen }}
             </div>
           </li>
+          <li @click="handleNavBtnClick(views.hyperThumbnailGen)">
+            <div :class="selectedView === views.hyperThumbnailGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
+              {{ views.hyperThumbnailGen }}
+            </div>
+          </li>
 
-          <li><a>Hyper Thumbnail Generator</a></li>
           <li><a>Transcript Generator</a></li>
           <li><a>Video Converter</a></li>
         </div>
@@ -107,7 +111,7 @@ export default defineComponent({
         previewGen: "Preview Generator" as View,
         segmentGen: "Segment Generator" as View,
         thumbnailGen: "Thumbnail Generator" as View,
-        hypThumbnailGen: "Hyper Thumbnail Generator" as View,
+        hyperThumbnailGen: "Hyper Thumbnail Generator" as View,
         transcriptGen: "Transcription Generator" as View,
         videoConvertor: "Video Converter" as View,
         settings: "Settings" as View,

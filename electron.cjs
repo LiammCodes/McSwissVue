@@ -13,6 +13,7 @@ function showNotification () {
 let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
+    autoHideMenuBar: true,
     width: 1200,
     minWidth: 1200,
     height: 800,

@@ -39,7 +39,7 @@ export function removeExtension(filename: string) {
 }
 
 export function fileAlreadyExists(fileName: string, outputFilePath: string, fileExtension: string): boolean {
-  const newFile = path.join(outputFilePath, (fileName + " Prev" + fileExtension))
+  const newFile = path.join(outputFilePath, (fileName + fileExtension))
   if (fs.existsSync(newFile)) {
     return true;
   } else {
