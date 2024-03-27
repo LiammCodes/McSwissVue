@@ -14,6 +14,21 @@ export function getSeconds(time: string | null){
   }
 }
 
+export function parseFfmpegConvertProgress(data: string, size: string): number {
+  if (data) {
+    const pattern = /size=\s+(\d+)kB/;
+    const match = RegExp(pattern).exec(data);
+    if (match) {
+      return (parseInt(match[1]) / (parseInt(size) / 1024)) * 100;
+    } else {
+      return 0;
+    }
+  } else {
+    return 0
+  }
+  
+}
+
 // returns progress percent
 export function parseFFmpegProgress(data: string, startTime: string, endTime: string): number {
   console.log(getSeconds(parseOutTime(data)) + " / " + (getSeconds(endTime) - getSeconds(startTime)))

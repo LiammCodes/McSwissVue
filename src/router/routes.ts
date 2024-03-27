@@ -2,6 +2,7 @@ import { RouteRecordRaw } from 'vue-router';
 import PreviewGen from '../views/PreviewGen.vue';
 import HyperThumbnailGen from '../views/HyperThumbnailGen.vue';
 import SegmentGen from '../views/SegmentGen.vue';
+import VideoConverter from '../views/VideoConverter.vue';
 import SettingsView from '../views/SettingsView.vue';
 
 const routes: RouteRecordRaw[] = [
@@ -19,6 +20,11 @@ const routes: RouteRecordRaw[] = [
     path: '/segment-gen',
     name: 'Segment Generator',
     component: SegmentGen,
+  },
+  {
+    path: '/video-converter',
+    name: 'Video Converter',
+    component: VideoConverter,
   },
   {
     path: '/settings',

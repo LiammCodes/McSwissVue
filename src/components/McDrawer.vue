@@ -68,7 +68,13 @@
           </li>
 
           <li><a>Transcript Generator</a></li>
-          <li><a>Video Converter</a></li>
+
+          <li @click="handleNavBtnClick(views.videoConverter)">
+            <div :class="selectedView === views.videoConverter ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
+              {{ views.videoConverter }}
+            </div>
+          </li>
+
         </div>
         <div>
           <li @click="handleNavBtnClick(views.settings)">
@@ -113,7 +119,7 @@ export default defineComponent({
         thumbnailGen: "Thumbnail Generator" as View,
         hyperThumbnailGen: "Hyper Thumbnail Generator" as View,
         transcriptGen: "Transcription Generator" as View,
-        videoConvertor: "Video Converter" as View,
+        videoConverter: "Video Converter" as View,
         settings: "Settings" as View,
       }
     }
