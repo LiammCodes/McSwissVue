@@ -86,6 +86,7 @@ import {
   getSeconds,
   getShortestVideoDuration,
   parseFfmpegConvertProgress,
+  parseFFmpegProgress,
   removeExtension
 } from '../utils/HelperFunctions';
 import McFileUpload from '../components/McFileUpload.vue';
@@ -119,6 +120,7 @@ export default defineComponent({
       bitrate: '3000' as string,
       errorMessage: '' as string,
       files: ref<File[]>([]),
+      fileObjects: [] as FileData[],
       filesLoading: true as boolean,
       formatDropdownOpen: false as boolean,
       generating: false as boolean,
@@ -189,13 +191,12 @@ export default defineComponent({
       }
     },
 
-    handleFilesLoaded(fileObjects: object[]) {
-      this.filesLoading = false
-      this.setSuccessToastMsg(fileObjects.length)
-      
-      // get shortest video durration
-      // (this will set the maximum allowed preview durration)
-      this.shortestDuration = getShortestVideoDuration(fileObjects);
+    handleFilesLoaded(fileObjects: FileData[]) {
+      if (fileObjects) {
+        this.filesLoading = false
+        this.fileObjects = fileObjects;
+        this.setSuccessToastMsg(fileObjects.length)
+      }
     },
 
     async setOutputPath() {
@@ -205,7 +206,6 @@ export default defineComponent({
     },
 
     errorsFlagged(): boolean {
-      console.log('checking')
       if (!(/^\d+$/.test(this.bitrate))) {
         this.toastMessage = 'Please enter a valid bitrate';
         return true;
@@ -222,6 +222,8 @@ export default defineComponent({
     getSeconds,
 
     parseFfmpegConvertProgress,
+
+    parseFFmpegProgress,
     
     removeExtension,
 
@@ -269,6 +271,7 @@ export default defineComponent({
     },
 
     async convertVideos() {
+      
       // check if any new files already exist
       if (this.anyVideosExists()) {
         // Toggle the modal
@@ -280,17 +283,16 @@ export default defineComponent({
           this.binaryModalResolver = resolve;
         });
       } 
-
-      this.files.forEach((file: any) => {
+      this.fileObjects.forEach((fileObj: any) => {
         const ffmpegCommand = [
-          '-i', file.path, // Input file
+          '-i', fileObj.file.path, // Input file
           '-c:v', 'h264', // Video codec
           '-c:a', 'aac', // Audio codec
           '-strict', 'experimental', // Required for AAC codec
           '-b:v', this.bitrate + 'k',
           '-preset', 'veryfast',
           '-b:a', '128k', // Audio bitrate
-          this.path.join(this.outputFilePath, this.removeExtension(file.name) + this.outputFileExtension) // Output file
+          this.path.join(this.outputFilePath, this.removeExtension(fileObj.file.name) + this.outputFileExtension) // Output file
         ];
 
 
@@ -308,11 +310,9 @@ export default defineComponent({
               const overwrite: string = this.overwriteResponse ? 'y' : 'n';
               childProcess.stdin.write(overwrite + '\n');
             } 
-            
-            if (this.progress < 100) { // VERY unfortunate bug lol, this is a bandaid
-              this.progress = this.parseFfmpegConvertProgress(data, file.size);
-            }
-            console.log(this.progress)
+            const pattern = /time=(\d+:\d+:\d+\.\d+)/;;
+            this.progress = this.parseFFmpegProgress(data, '00:00:00', fileObj.duration, pattern);
+            // console.log(this.progress)
           });
           childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
           childProcess.on('error', (err: any) => {

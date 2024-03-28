@@ -294,8 +294,9 @@ export default defineComponent({
               this ensures the progress bar doesn't ever go down instead of up... not an ideal solution but the progress handling in 
               ffmpeg is wack :(
             */
-            if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime)) {
-              this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime);
+            const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
+            if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern)) {
+              this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern);
             }
           });
           childProcess.stderr.on('data', async (data: any) => {

@@ -278,7 +278,8 @@ export default defineComponent({
         
         if (childProcess) { // Check if childProcess is not null
           childProcess.stdout.on('data', (data: any) => {
-            this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime);
+            const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
+            this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime, pattern);
           });
           childProcess.stderr.on('data', async (data: any) => {
             const message = data.toString().trim();

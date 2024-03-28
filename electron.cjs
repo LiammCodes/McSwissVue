@@ -23,14 +23,24 @@ function createWindow() {
       contextIsolation: false,
       enableRemoteModule: true,
     },
+    show: false
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools({ mode: 'right'});
+    // set timer to allow vite to launch before trying to serve electron app
+    setTimeout(function() {
+      console.log('starting vite...');
+      mainWindow.loadURL('http://localhost:5173');
+      mainWindow.webContents.openDevTools({ mode: 'right'});
+    }, 1000);
   } else {
     mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
   }
+
+  // solution to flashing white screen on app load
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show()
+  })
   
 }
 

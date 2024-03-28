@@ -14,12 +14,14 @@ export function getSeconds(time: string | null){
   }
 }
 
-export function parseFfmpegConvertProgress(data: string, size: string): number {
+export function parseFfmpegConvertProgress(data: string, duration: string): number {
   if (data) {
-    const pattern = /size=\s+(\d+)kB/;
+    const pattern = /time=(\d{2}):(\d{2}):(\d{2}).(\d{2})/;
+    console.log(typeof pattern)
     const match = RegExp(pattern).exec(data);
     if (match) {
-      return (parseInt(match[1]) / (parseInt(size) / 1024)) * 100;
+      console.log(match[1] + " / " + getSeconds(duration))
+      return (getSeconds(match[1]) / getSeconds(duration)) * 100;
     } else {
       return 0;
     }
@@ -30,14 +32,13 @@ export function parseFfmpegConvertProgress(data: string, size: string): number {
 }
 
 // returns progress percent
-export function parseFFmpegProgress(data: string, startTime: string, endTime: string): number {
-  console.log(getSeconds(parseOutTime(data)) + " / " + (getSeconds(endTime) - getSeconds(startTime)))
-  return (getSeconds(parseOutTime(data)) / (getSeconds(endTime) - getSeconds(startTime))) * 100;
+export function parseFFmpegProgress(data: string, startTime: string, endTime: string, pattern: RegExp): number {
+  console.log((getSeconds(parseOutTime(data, pattern))) + " / " + (getSeconds(endTime) - getSeconds(startTime)))
+  return (getSeconds(parseOutTime(data, pattern)) / (getSeconds(endTime) - getSeconds(startTime))) * 100;
 }
 
-export function parseOutTime(output: string): string | null {
+export function parseOutTime(output: string, pattern: RegExp): string | null {
   if (output) {
-    const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
     const match = RegExp(pattern).exec(output);
     return match ? match[1] : null;  
   } else {

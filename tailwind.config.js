@@ -5,6 +5,9 @@ export default {
     "./src/**/*.{vue,js,ts,jsx,tsx}"
   ],
   mode: 'jit',
+  daisyui: {
+    themes: ["dark", "light", "aqua", "cupcake", "dracula", "forest", "lofi", "night", "synthwave", "winter"],
+  },
   theme: {
     extend: {},
   },
