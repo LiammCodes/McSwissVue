@@ -13,9 +13,20 @@ export type FileData = {
   thumbnailPath: string
 }
 
+export type SelectOption = {
+  label: string,
+  value: string
+}
+
 export type Segment = {
   name: string,
   id: number,
   startTime: string,
   endTime: string,
+}
+
+export type Status = {
+  label: string,
+  color: string,
+  value: number
 }

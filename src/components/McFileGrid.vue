@@ -1,8 +1,33 @@
 <template>
-  <div class="bg-base-200 rounded-xl p-2 flex h-full" style="overflow-y: auto; overflow-x: hidden;">
+  <div class="bg-base-200 rounded-xl p-2 px-3 flex h-full" style="overflow-y: auto; overflow-x: hidden;">
     <div v-if="filesLoading || fileObjects == null" class="flex items-center justify-center h-full w-full">
       <span class="loading loading-spinner text-primary loading-lg"></span>
     </div>
+    <div v-else-if="list" class="w-full">
+      <button 
+        v-for="fileObj, index in fileObjects"
+        :key="fileObj.file!.name"
+        class="w-full p-2 my-1 rounded-md hover:bg-base-300 focus:outline-none focus:bg-base-300"
+        ref="fileBtns"
+        @click="handleFileSelection(fileObj)"
+      >
+        <div class="flex items-center justify-between space-x-3">
+          <div class="flex items-center space-x-3">
+            <img 
+              class="rounded-md object-cover w-22 h-8" 
+              :src="fileObj.thumbnailPath"
+              alt="Thumbnail for selected video"
+            />
+            <p class="text-center break-words text-xs">{{ shortenFileName(fileObj.file!.name, 30) }}</p>
+          </div>
+          <div v-if="fileStatuses[index]?.value != 0" class="flex items-center space-x-4">
+            <p class="text-center text-xs">{{ fileStatuses[index]?.label }}</p>
+            <span v-if="fileStatuses[index]?.value < progressStatusDenominator" class="loading loading-spinner" :class="getStatusColor(index)"></span>
+          </div>
+        </div>
+      </button>
+    </div>
+
     <div v-else class="col-span-3 gap-2 justify-start">
       <button 
         v-for="fileObj in fileObjects"
@@ -27,7 +52,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType, } from "vue";
-import { FileData } from "../types/Types";
+import { FileData, MethodOption, Status } from "../types/Types";
 
 export default defineComponent({
   props: {
@@ -35,6 +60,21 @@ export default defineComponent({
       type: Array as PropType<File[]>,
       required: true,
     },
+    list: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    fileStatuses: {
+      type: Array as PropType<Status[]>,
+      required: false,
+      default: [],
+    },
+    method: {
+      type: Object as PropType<MethodOption>,
+      required: false,
+      default: {}
+    }
   },
 
   setup() {
@@ -65,6 +105,15 @@ export default defineComponent({
     this.selectFirstFile();
     this.filesLoaded();
   },
+  computed: {
+    progressStatusDenominator() {
+      if (this.method && this.method.value === "upload") {
+        return 5;
+      } else {
+        return 4;
+      }
+    }
+  },
   methods: {
     selectFirstFile() {
       const fileButtons = this.$refs.fileBtns as HTMLElement[]; // Type assertion
@@ -82,6 +131,10 @@ export default defineComponent({
       await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
         this.tempPath = this.path.join(result);
       })
+    },
+
+    getStatusColor(index: number) {
+      return this.fileStatuses[index].color
     },
 
     async buildFileObjects(files: File[]) {

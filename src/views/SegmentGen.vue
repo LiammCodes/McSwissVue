@@ -47,13 +47,30 @@
             <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
           </div>  
         </div>
+        <div class="flex items-center space-x-2">
+          <div class="text-right w-16">
+            <span>Method:</span>
+          </div>
+          <div class="dropdown dropdown-top">
+            <div tabindex="0" role="button" class="btn btn-sm bg-base-100 w-64" style="text-transform: none;">{{ selectedSuffix.label }}</div>
+            <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-64 mb-2">
+              <li 
+                v-for="(suffix, index) in suffixOptions" 
+                :key="index"
+                @click="handleSuffixSelect(suffix)"
+              >
+                <a>{{ suffix.label }}</a>  
+              </li>
+            </ul>
+          </div>
+        </div> 
         <label class="btn btn-primary" @click="handleGenerate()">
           generate
         </label>
       </div>
       <div class="py-3" v-else>
         <div class="mb-2 text-base font-medium flex justify-between">
-          <span>Generating Previews...</span>
+          <span>Generating Segments...</span>
           <span>{{ Math.floor(progress) }}%</span>
         </div>
         <div class="w-full bg-base-100 rounded-full h-2.5">
@@ -67,13 +84,12 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
-import { FileData, Segment, Toast } from '../types/Types';
+import { FileData, Segment, SelectOption, Toast } from '../types/Types';
 import { PlusCircleIcon } from '@heroicons/vue/24/outline';
 import { 
   fileAlreadyExists,
   getSeconds,
   getShortestVideoDuration,
-  metaDataMissing,
   parseFFmpegProgress,
   removeExtension
 } from '../utils/HelperFunctions';
@@ -129,9 +145,23 @@ export default defineComponent({
         thumbnailPath: '' as string
       } as FileData,
       segments: [] as Segment[],
+      selectedSuffix: {
+        label: "Numbers",
+        value: "numbers"
+      } as SelectOption,
       shortestDuration: null as null | number,
       showBinaryModal: false as boolean,
       showFileUpload: true as boolean,
+      suffixOptions: [
+        {
+          label: "Letters",
+          value: "letters"
+        },
+        {
+          label: "Numbers",
+          value: "numbers"
+        }
+      ] as SelectOption[],
       successToastMessage: '' as string,
       toast: {} as Toast,
       toastMessage: '' as string,
@@ -139,20 +169,31 @@ export default defineComponent({
   },
   watch: {},
   mounted() {
-    this.appStore.setSelectedView('Segment Generator');
-    if (!this.showFileUpload && !this.filesLoading && this.metaDataMissing(this.selectedFile)) {
-      this.handleFilesUploaded;
-      console.log("missing data, trying again");
-    }
+    this.setOutputPathFromStorage();
+    this.setSuffixFromStorage();
   },
   methods: {
     fileAlreadyExists,
     getSeconds,
     getShortestVideoDuration,
-    metaDataMissing,
     parseFFmpegProgress,
     removeExtension,
     
+    setOutputPathFromStorage() {
+      if (this.appStore.segOutputPath) {
+        this.outputFilePath = this.appStore.segOutputPath;
+      }
+    },
+    setSuffixFromStorage() {
+      if (this.appStore.segSuffix) {
+        if (this.appStore.segSuffix === "letters") {
+          this.selectedSuffix = this.suffixOptions[0];
+        } else {
+          this.selectedSuffix = this.suffixOptions[1];
+        }
+      }
+    },
+
     handleOverwriteResponse(response: string): void {
       this.showBinaryModal = false;
       this.overwriteResponse = response === 'yes';
@@ -169,6 +210,16 @@ export default defineComponent({
         kind: 'alert-error',
         timeout: 3000
       })
+    },
+
+    handleSuffixSelect(suffix: SelectOption) {
+      this.selectedSuffix = suffix;
+      this.appStore.setSegSuffix(suffix.value);
+      this.segments.forEach((segment: Segment) => {
+        const fileSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(segment.id+97) : segment.id + 1;
+        console.log(segment.name)
+        segment.name = this.removeExtension(this.files[0].name) + "_" + fileSuffix + this.outputFileExtension
+      });
     },
 
     handleFilesUploaded(uploadedFiles: File[]) {
@@ -204,15 +255,17 @@ export default defineComponent({
 
     async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
-        console.log(result)
         this.outputFilePath = result;
+        this.appStore.setSegOutputPath(result);
       })
     },
 
     addSegment() {
       // set new id for segment
+      const suffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(this.segments.length+97) : this.segments.length + 1;
+      
       this.segments.push({
-        name: this.removeExtension(this.files[0].name) + "_" + String.fromCharCode(this.segments.length+97) + this.outputFileExtension,
+        name: this.removeExtension(this.files[0].name) + "_" + suffix + this.outputFileExtension,
         startTime: '00:00:00',
         endTime: '00:00:00',
         id: this.segments.length
@@ -250,7 +303,9 @@ export default defineComponent({
 
     anySegmentExists(): boolean {
       for (const segment of this.segments) {
-        if (fileAlreadyExists(segment.name, this.outputFilePath, this.outputFileExtension)) {
+        const newFile = removeExtension(segment.name) + this.outputFileExtension;
+        const newFilePath = this.path.join(this.outputFilePath, newFile);
+        if (fileAlreadyExists(newFilePath)) {
           return true;
         }
       }
@@ -269,60 +324,65 @@ export default defineComponent({
           this.binaryModalResolver = resolve;
         });
       } 
+
+      if (this.overwriteResponse || this.overwriteResponse === null) {
       
-      // Variable to keep track of the number of completed segments
-      let completedSegments = 0;
+        // Variable to keep track of the number of completed segments
+        let completedSegments = 0;
 
-      this.segments.forEach((segment: Segment, i: number) => {
-        const ffmpegCommand = [
-          // @ts-ignore
-          '-i', this.files[0].path,
-          '-ss', segment.startTime,
-          '-to', segment.endTime,
-          '-b:v', '3000k',
-          '-progress', 'pipe:1',
-          this.path.join(this.outputFilePath, this.removeExtension(this.files[0].name) + "_" + String.fromCharCode(i+97) + this.outputFileExtension)
-        ];
+        this.segments.forEach((segment: Segment, i: number) => {
+          const ffmpegCommand = [
+            // @ts-ignore
+            '-i', this.files[0].path,
+            '-ss', segment.startTime,
+            '-to', segment.endTime,
+            '-b:v', '3000k',
+            '-progress', 'pipe:1',
+            this.path.join(this.outputFilePath, this.removeExtension(this.files[0].name) + "_" + String.fromCharCode(i+97) + this.outputFileExtension)
+          ];
 
-        this.generating = true;
-        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
-        
-        if (childProcess) { // Check if childProcess is not null
-          childProcess.stdout.on('data', (data: any) => {
-            /* 
-              This is required for any tools that run more than one child process at once (aka any tools that accept more than one video)
-              this ensures the progress bar doesn't ever go down instead of up... not an ideal solution but the progress handling in 
-              ffmpeg is wack :(
-            */
-            const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
-            if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern)) {
-              this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern);
-            }
-          });
-          childProcess.stderr.on('data', async (data: any) => {
-            const message = data.toString().trim();
-            if (message.includes('Overwrite? [y/N]')) {
-              const overwrite: string = this.overwriteResponse ? 'y' : 'n';
-              childProcess.stdin.write(overwrite + '\n');
-            } 
-          });
-          childProcess.on('close', (code: any) => {
-            completedSegments++;
-            if (completedSegments === this.segments.length) {
-              this.handleGenerationComplete(code);
-            }
-          });
-          childProcess.on('error', (err: any) => {
-            // pass
-          });
-        } else {
-          console.error('Failed to spawn FFMpeg process.');
-        }
-        this.progress = 0;
-      });
+          this.generating = true;
+          const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
+          
+          if (childProcess) { // Check if childProcess is not null
+            childProcess.stdout.on('data', (data: any) => {
+              /* 
+                This is required for any tools that run more than one child process at once (aka any tools that accept more than one video)
+                this ensures the progress bar doesn't ever go down instead of up... not an ideal solution but the progress handling in 
+                ffmpeg is wack :(
+              */
+              const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
+              if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern)) {
+                this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern);
+              }
+            });
+            childProcess.stderr.on('data', async (data: any) => {
+              const message = data.toString().trim();
+              if (message.includes('Overwrite? [y/N]')) {
+                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+                childProcess.stdin.write(overwrite + '\n');
+              } 
+            });
+            childProcess.on('close', (code: any) => {
+              completedSegments++;
+              if (completedSegments === this.segments.length) {
+                this.handleGenerationComplete();
+              }
+            });
+            childProcess.on('error', (err: any) => {
+              // pass
+            });
+          } else {
+            console.error('Failed to spawn FFMpeg process.');
+          }
+          this.progress = 0;
+        });
+      } else {
+        this.handleGenerationComplete();
+      }
     },
 
-    handleGenerationComplete(code: any) {
+    handleGenerationComplete() {
       this.setSuccessToastMsg(this.segments.length)
       this.generating = false;
       this.progress = 0;

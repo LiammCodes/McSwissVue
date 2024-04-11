@@ -5,7 +5,7 @@ import path from 'path';
 
 export default defineConfig({
   optimizeDeps: {
-    exclude: ['js-big-decimal']
+    exclude: ['js-big-decimal', 'vue-cryptojs']
   },
   plugins: [
     vue(),

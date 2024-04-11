@@ -145,9 +145,14 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.appStore.setSelectedView('Video Converter');
+    this.setOutputPathFromStorage();
   },
   methods: {
+    setOutputPathFromStorage() {
+      if (this.appStore.conOutputPath) {
+        this.outputFilePath = this.appStore.conOutputPath;
+      }
+    },
     handleBadExtension() {
       this.$emit('toggle-toast', {
         message: 'Only .mp4, .mov, and .m4v files are allowed',
@@ -202,6 +207,7 @@ export default defineComponent({
     async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
         this.outputFilePath = result;
+        this.appStore.setConOutputPath(result);
       })
     },
 
@@ -242,7 +248,7 @@ export default defineComponent({
       }
     },
 
-    handleGenerationComplete(code: any) {
+    handleConversionComplete() {
       this.generating = false;
       this.progress = 0;
 
@@ -263,7 +269,9 @@ export default defineComponent({
 
     anyVideosExists(): boolean {
       for (const file of this.files) {
-        if (fileAlreadyExists(removeExtension(file.name), this.outputFilePath, this.outputFileExtension)) {
+        const newFile = removeExtension(file.name) + this.outputFileExtension;
+        const newFilePath = this.path.join(this.outputFilePath, newFile);
+        if (fileAlreadyExists(newFilePath)) {
           return true;
         }
       }
@@ -283,46 +291,52 @@ export default defineComponent({
           this.binaryModalResolver = resolve;
         });
       } 
-      this.fileObjects.forEach((fileObj: any) => {
-        const ffmpegCommand = [
-          '-i', fileObj.file.path, // Input file
-          '-c:v', 'h264', // Video codec
-          '-c:a', 'aac', // Audio codec
-          '-strict', 'experimental', // Required for AAC codec
-          '-b:v', this.bitrate + 'k',
-          '-preset', 'veryfast',
-          '-b:a', '128k', // Audio bitrate
-          this.path.join(this.outputFilePath, this.removeExtension(fileObj.file.name) + this.outputFileExtension) // Output file
-        ];
 
 
-        this.generating = true;
-        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
-        
-        if (childProcess) { // Check if childProcess is not null
-          childProcess.stdout.on('data', (data: any) => {
-            
-          });
-          childProcess.stderr.on('data', async (data: any) => {
-            const message = data.toString().trim();
-            console.log(message)
-            if (message.includes('Overwrite? [y/N]')) {
-              const overwrite: string = this.overwriteResponse ? 'y' : 'n';
-              childProcess.stdin.write(overwrite + '\n');
-            } 
-            const pattern = /time=(\d+:\d+:\d+\.\d+)/;;
-            this.progress = this.parseFFmpegProgress(data, '00:00:00', fileObj.duration, pattern);
-            // console.log(this.progress)
-          });
-          childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
-          childProcess.on('error', (err: any) => {
-            // console.log(err)
-          });
-        } else {
-          console.error('Failed to spawn FFMpeg process.');
-        }
-      });
       
+      if (this.overwriteResponse || this.overwriteResponse === null) {
+        this.fileObjects.forEach((fileObj: any) => {
+          const ffmpegCommand = [
+            '-i', fileObj.file.path, // Input file
+            '-c:v', 'h264', // Video codec
+            '-c:a', 'aac', // Audio codec
+            '-strict', 'experimental', // Required for AAC codec
+            '-b:v', this.bitrate + 'k',
+            '-preset', 'veryfast',
+            '-b:a', '128k', // Audio bitrate
+            this.path.join(this.outputFilePath, this.removeExtension(fileObj.file.name) + this.outputFileExtension) // Output file
+          ];
+
+
+          this.generating = true;
+          const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
+          
+          if (childProcess) { // Check if childProcess is not null
+            childProcess.stdout.on('data', (data: any) => {
+              
+            });
+            childProcess.stderr.on('data', async (data: any) => {
+              const message = data.toString().trim();
+              console.log(message)
+              if (message.includes('Overwrite? [y/N]')) {
+                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+                childProcess.stdin.write(overwrite + '\n');
+              } 
+              const pattern = /time=(\d+:\d+:\d+\.\d+)/;;
+              this.progress = this.parseFFmpegProgress(data, '00:00:00', fileObj.duration, pattern);
+              // console.log(this.progress)
+            });
+            childProcess.on('close', (code: any) => this.handleConversionComplete());
+            childProcess.on('error', (err: any) => {
+              // console.log(err)
+            });
+          } else {
+            console.error('Failed to spawn FFMpeg process.');
+          }
+        });
+      } else {
+        this.handleConversionComplete();
+      }
     }
   }
 });

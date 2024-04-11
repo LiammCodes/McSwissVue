@@ -118,9 +118,14 @@ export default defineComponent({
     }
   },
   mounted() {
-    this.appStore.setSelectedView('Hyper Thumbnail Generator');
+    this.setOutputPathFromStorage();
   },
   methods: {
+    setOutputPathFromStorage() {
+      if (this.appStore.hypThumbOutputPath) {
+        this.outputFilePath = this.appStore.hypThumbOutputPath;
+      }
+    },
     handleBadExtension() {
       this.$emit('toggle-toast', {
         message: 'Only .mp4, .mov, and .m4v files are allowed',
@@ -171,6 +176,7 @@ export default defineComponent({
     async setOutputPath() {
       await this.ipcRenderer.invoke('dialog').then((result: string) => {
         this.outputFilePath = result;
+        this.appStore.setHypThumbOutputPath(result);
       })
     },
 
@@ -214,7 +220,7 @@ export default defineComponent({
       }
     },
 
-    handleGenerationComplete(code: any) {
+    handleGenerationComplete() {
       this.generating = false;
       this.progress = 0;
 
@@ -235,7 +241,9 @@ export default defineComponent({
 
     anyThumbnailsExists(): boolean {
       for (const file of this.files) {
-        if (fileAlreadyExists(removeExtension(file.name), this.outputFilePath, this.outputFileExtension)) {
+        const newFile = removeExtension(file.name) + this.outputFileExtension;
+        const newFilePath = this.path.join(this.outputFilePath, newFile);
+        if (fileAlreadyExists(newFilePath)) {
           return true;
         }
       }
@@ -255,40 +263,45 @@ export default defineComponent({
         });
       } 
 
-      this.files.forEach((file: any, i: number) => {
-        const ffmpegCommand = [
-          '-ss', this.time,
-          '-i', file.path,
-          '-vframes', '1',
-          '-q:v', '2',
-          this.path.join(this.outputFilePath, this.removeExtension(file.name) + ".png")
-        ];
-        console.log(ffmpegCommand)
-        this.generating = true;
-        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
-        
-        if (childProcess) { // Check if childProcess is not null
-          childProcess.stdout.on('data', (data: any) => {
-            console.log(data)
-            // this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime);
-          });
-          childProcess.stderr.on('data', async (data: any) => {
-            const message = data.toString().trim();
-            console.log(message)
-            if (message.includes('Overwrite? [y/N]')) {
-              const overwrite: string = this.overwriteResponse ? 'y' : 'n';
-              childProcess.stdin.write(overwrite + '\n');
-            } 
-          });
-          childProcess.on('close', (code: any) => this.handleGenerationComplete(code));
-          childProcess.on('error', (err: any) => {
-            // console.log(err)
-          });
-        } else {
-          console.error('Failed to spawn FFMpeg process.');
-        }
-        this.progress = ((i+1) / this.files.length) * 100;
-      });
+      if (this.overwriteResponse || this.overwriteResponse === null) {
+
+
+        this.files.forEach((file: any, i: number) => {
+          const ffmpegCommand = [
+            '-ss', this.time,
+            '-i', file.path,
+            '-vframes', '1',
+            '-q:v', '2',
+            this.path.join(this.outputFilePath, this.removeExtension(file.name) + ".png")
+          ];
+          this.generating = true;
+          const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
+          
+          if (childProcess) { // Check if childProcess is not null
+            childProcess.stdout.on('data', (data: any) => {
+              console.log(data)
+              // this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime);
+            });
+            childProcess.stderr.on('data', async (data: any) => {
+              const message = data.toString().trim();
+              if (message.includes('Overwrite? [y/N]')) {
+                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+                childProcess.stdin.write(overwrite + '\n');
+              } 
+            });
+            childProcess.on('close', (code: any) => this.handleGenerationComplete());
+            childProcess.on('error', (err: any) => {
+              // console.log(err)
+            });
+          } else {
+            console.error('Failed to spawn FFMpeg process.');
+          }
+          this.progress = ((i+1) / this.files.length) * 100;
+        });
+
+      } else {
+        this.handleGenerationComplete();
+      }
      
     }
   }

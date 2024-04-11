@@ -26,6 +26,16 @@ export default defineComponent({
       time: this.modelValue as string,
     }
   },
+  watch: {
+    time(newVal: string, oldVal: string) {
+      const str = newVal;
+      if (str.length < 8) {
+        this.time = '0' + this.time;
+      } else if (str.length > 8 && str[0] === '0') {
+        this.time = str.slice(1);
+      }
+    }
+  },
   methods: {
     handleInput() {
       this.$emit('update:modelValue', this.time)
@@ -33,3 +43,5 @@ export default defineComponent({
   }
 });
 </script>
+
+

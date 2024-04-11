@@ -9,9 +9,9 @@
     <div class="p-3">
       <p class="text-base font-bold" style="word-break: break-all;">{{ selectedFile.file!.name }}</p>
       <div class="bg-base-100 rounded-md text-sm p-2 space-y-3 mt-3">
-        <p>Duration: <span class="float-right">{{ selectedFile.duration }}</span></p>
-        <p>Size: <span class="float-right">{{ formatedFileSize(+selectedFile.file!.size) }}</span></p>
-        <p>Bitrate: <span class="float-right">{{ selectedFile.bitrate }}</span></p>
+        <p>Duration: <span class="float-right">{{ fileDuration }}</span></p>
+        <p>Size: <span class="float-right">{{ fileSize }}</span></p>
+        <p>Bitrate: <span class="float-right">{{ fileBitrate }}</span></p>
       </div>
     </div>
   </div>
@@ -27,7 +27,30 @@ export default defineComponent({
     selectedFile: Object as PropType<FileData>
   },
   mounted() {
-    console.log(this.selectedFile)
+    
+  },
+  computed: {
+    fileBitrate(): string {
+      if (this.selectedFile) {
+        return this.selectedFile.duration
+      } else {
+        return 'Err :('
+      }
+    },
+    fileDuration(): string {
+      if (this.selectedFile) {
+        return this.selectedFile.bitrate
+      } else {
+        return 'Err :('
+      }
+    },
+    fileSize(): string {
+      if (this.selectedFile) {
+        return this.formatedFileSize(+this.selectedFile.file!.size)
+      } else {
+        return 'Err :('
+      }
+    }
   },
   methods: {
     formatedFileSize(bytes: number): string {

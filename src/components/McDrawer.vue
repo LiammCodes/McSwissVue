@@ -27,7 +27,6 @@
                 <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li> 
                 <li @click="appStore.setTheme('dracula')"><a>Dracula</a></li>
                 <li @click="appStore.setTheme('forest')"><a>Forest</a></li> 
-                <li @click="appStore.setTheme('lofi')"><a>Lofi</a></li>
                 <li @click="appStore.setTheme('night')"><a>Night</a></li>
                 <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li>
                 <li @click="appStore.setTheme('winter')"><a>Winter</a></li>
@@ -67,7 +66,11 @@
             </div>
           </li>
 
-          <li><a>Transcript Generator</a></li>
+          <li @click="handleNavBtnClick(views.transcriptGen)">
+            <div :class="selectedView === views.transcriptGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
+              {{ views.transcriptGen }}
+            </div>
+          </li>
 
           <li @click="handleNavBtnClick(views.videoConverter)">
             <div :class="selectedView === views.videoConverter ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
@@ -118,13 +121,13 @@ export default defineComponent({
         segmentGen: "Segment Generator" as View,
         thumbnailGen: "Thumbnail Generator" as View,
         hyperThumbnailGen: "Hyper Thumbnail Generator" as View,
-        transcriptGen: "Transcription Generator" as View,
+        transcriptGen: "Transcript Generator" as View,
         videoConverter: "Video Converter" as View,
         settings: "Settings" as View,
       }
     }
   },
-  mounted(){
+  mounted() {
     this.selectedView = this.appStore.selectedView;
   },
   computed: {
@@ -147,6 +150,7 @@ export default defineComponent({
     handleNavBtnClick(view: View) {
       this.drawerOpen = false;
       this.selectedView = view;
+      console.log("Setting selected view to " + view)
       this.appStore.setSelectedView(view);
       this.$router.push({ name: view});
     },

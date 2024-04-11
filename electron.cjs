@@ -22,6 +22,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,
+      webSecurity: false
     },
     show: false
   });
@@ -41,7 +42,7 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
   })
-  
+
 }
 
 function clearTempFiles() {
