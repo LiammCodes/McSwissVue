@@ -24,7 +24,7 @@
               <div>
                 <a class="cursor-pointer underline text-primary" @click="goToWebsite" target="_blank">Liam Codes</a>
               </div>
-              <div>2024-03-08 (3 wks ago)</div>
+              <div>{{ appVersionRelease }}</div>
               <div>{{ os.type }} {{ os.machine }}</div>
             </div>
           </div>
