@@ -4,6 +4,7 @@
   "description": "A video editing toolbox",
   "private": true,
   "version": "0.1.0",
+  "versionReleased": "2024-04-16",
   "type": "module",
   "main": "./electron.js",
   "scripts": {
@@ -13,8 +14,11 @@
     "electron:dev": "npm run dev & electron ./electron.cjs",
     "electron:build": "npm run build && electron-builder"
   },
-  "repository": "https://github.com/LiammCodes/McSwissVue",
-  "publish": {
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LiammCodes/McSwissVue"
+  },
+    "publish": {
     "provider": "github",
     "releaseType": "release"
   },
@@ -89,6 +93,9 @@
     },
     "linux": {
       "target": "AppImage"
-    }
+    },
+    "publish": [
+      "github"
+    ]
   }
 }

@@ -5,12 +5,10 @@ const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
 const { autoUpdater, AppUpdater } = require('electron-updater')
 
-// const NOTIFICATION_TITLE = 'Basic Notification';
-// const NOTIFICATION_BODY = 'Notification from the Main process';
 
-// function showNotification () {
-//   new Notification({ title: NOTIFICATION_TITLE, body: NOTIFICATION_BODY }).show()
-// }
+function showNotification (title, body) {
+  new Notification({ title: title, body: body }).show()
+}
 
 let mainWindow;
 function createWindow() {
@@ -65,12 +63,12 @@ function clearTempFiles() {
 }
 
 autoUpdater.on("update-available", (info) => {
+  showNotification('Update Available', 'Downloading the newest update')
   autoUpdater.downloadUpdate();
 })
 
 
 app.whenReady().then(() => {
-
   autoUpdater.checkForUpdates()
 
   require('@electron/remote/main').initialize()
@@ -84,6 +82,11 @@ app.whenReady().then(() => {
   ipcMain.handle('get-version', async (event) => {
     const packageJson = require('./package.json')
     return packageJson.version;
+  })
+
+  ipcMain.handle('get-version-release', async (event) => {
+    const packageJson = require('./package.json')
+    return packageJson.versionReleased;
   })
 
   ipcMain.handle('dialog', async (event, method, params) => {       
@@ -115,8 +118,6 @@ app.whenReady().then(() => {
   });
 
 });
-
-// .then(showNotification)
 
 app.on('window-all-closed', () => {
   clearTempFiles();

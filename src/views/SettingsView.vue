@@ -144,6 +144,7 @@ export default defineComponent({
   data() {
     return {
       appVersion: '0.0.1' as string,
+      appVersionRelease: '0000-00-00' as string,
       s3Bucket: '' as string,
       s3Access: '' as string,
       s3Secret: '' as string,
@@ -162,6 +163,11 @@ export default defineComponent({
     async setVersion() {
       await this.ipcRenderer.invoke('get-version').then((result: string) => {
         this.appVersion = result;
+      })
+    },
+    async setVersionRelease() {
+      await this.ipcRenderer.invoke('get-version-release').then((result: string) => {
+        this.appVersionRelease = result;
       })
     },
     setKeysFromStorage() {
