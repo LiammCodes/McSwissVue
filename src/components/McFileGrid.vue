@@ -1,5 +1,17 @@
 <template>
-  <div class="bg-base-200 rounded-xl p-2 px-3 flex h-full" style="overflow-y: auto; overflow-x: hidden;">
+  <div 
+    class="bg-base-200 rounded-xl p-2 px-3 flex h-full" 
+    style="overflow-y: auto; overflow-x: hidden;" 
+    @dragover.prevent="handleDragOver"
+    @drop.prevent="handleDrop"  
+  >
+    <input 
+      type="file" 
+      name="file_upload" 
+      class="hidden" 
+      @change="handleFileUpload" 
+      accept=".mp4, .mov, .m4v"
+    >
     <div v-if="filesLoading || fileObjects == null" class="flex items-center justify-center h-full w-full">
       <span class="loading loading-spinner text-primary loading-lg"></span>
     </div>
@@ -52,7 +64,7 @@
 
 <script lang="ts">
 import { defineComponent, PropType, } from "vue";
-import { FileData, MethodOption, Status } from "../types/Types";
+import { FileData, SelectOption, Status } from "../types/Types";
 
 export default defineComponent({
   props: {
@@ -71,7 +83,7 @@ export default defineComponent({
       default: [],
     },
     method: {
-      type: Object as PropType<MethodOption>,
+      type: Object as PropType<SelectOption>,
       required: false,
       default: {}
     }
@@ -95,6 +107,7 @@ export default defineComponent({
       tempPath: '' as string,
       ffmpegPath: '' as string,
       ffprobePath: '' as string,
+      multipleFiles: false as boolean,
     }
   },
 
@@ -112,7 +125,7 @@ export default defineComponent({
       } else {
         return 4;
       }
-    }
+    },
   },
   methods: {
     selectFirstFile() {
@@ -138,7 +151,9 @@ export default defineComponent({
     },
 
     async buildFileObjects(files: File[]) {
+      console.log('building files')
       this.filesLoading = true;
+      
       try {
         // Use Promise.all to process all files concurrently
         const fileProcessingPromises = files.map(async (file: File) => {
@@ -157,6 +172,8 @@ export default defineComponent({
         const fileObjects = await Promise.all(fileProcessingPromises)
         this.filesLoading = false;
         this.fileObjects = fileObjects;
+
+        this.handleFileSelection(this.fileObjects[0]);
         
       } catch (error) {
         console.error('Error:', error);
@@ -287,6 +304,45 @@ export default defineComponent({
     openFile(file: File) {
       this.$emit('open-file', file);
     },
+
+    handleDragOver(event: DragEvent) {
+      console.log('handling drag over');
+      event.preventDefault();
+    },
+    handleDrop(event: DragEvent) {
+      console.log('handling drop event');
+      event.preventDefault();
+      let files: File[];
+      const acceptedExtensions = ['.mp4', '.mov', '.m4v'];
+      let badExtension = false;
+      files = Array.from(event.dataTransfer?.files || []);
+
+      // check the extension of the file
+      files.forEach((file: File) => {
+        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+        if (!acceptedExtensions.includes('.' + fileExtension)) {
+          badExtension = true;
+          return;
+        }
+      })
+
+      if (badExtension) {
+        // Notify the user that the file type is not accepted
+        this.$emit('bad-extension')
+      } else {
+        this.buildFileObjects(files);
+      }
+    },
+
+    handleFileUpload(event: Event) {
+      const input = event.target as HTMLInputElement;
+      if (input.files) {
+        const files = Array.from(input.files);
+        this.buildFileObjects(files);
+        // this.$emit("files-uploaded", files);
+      }
+    },
+
   },
 });
 </script>

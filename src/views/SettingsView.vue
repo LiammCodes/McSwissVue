@@ -8,7 +8,7 @@
             <cloud-icon class="h-5 w-5 mr-2" />
             <span class="text-lg font-semibold">McSwiss</span>
             <div class="badge text-green-900 badge-success gap-2 mx-2">
-              v{{ pjson.version }}
+              v{{ appVersion }}
             </div>
           </div>
 
@@ -22,7 +22,7 @@
             <div class="flex-col justify-end">
               <div>McIntyre Swiss Army Knife</div>
               <div>
-                <a class="cursor-pointer underline text-primary" @click="goToWebsite" target="_blank">{{ pjson.author }}</a>
+                <a class="cursor-pointer underline text-primary" @click="goToWebsite" target="_blank">Liam Codes</a>
               </div>
               <div>2024-03-08 (3 wks ago)</div>
               <div>{{ os.type }} {{ os.machine }}</div>
@@ -136,13 +136,14 @@ export default defineComponent({
   setup() {
     const appStore = useAppStore();
     const aws = require('aws-sdk');
-    const pjson = require('./package.json');
-    const os = require('os');
     const electron = require('electron');
-    return { appStore, aws, electron, os, pjson }
+    const ipcRenderer = require('electron').ipcRenderer;
+    const os = require('os');
+    return { appStore, aws, electron, ipcRenderer, os }
   },
   data() {
     return {
+      appVersion: '0.0.1' as string,
       s3Bucket: '' as string,
       s3Access: '' as string,
       s3Secret: '' as string,
@@ -153,10 +154,16 @@ export default defineComponent({
       trintTestLoading: false as boolean,
     }
   },
-  mounted() {
+  async mounted() {
+    await this.setVersion();
     this.setKeysFromStorage();
   },
   methods: {
+    async setVersion() {
+      await this.ipcRenderer.invoke('get-version').then((result: string) => {
+        this.appVersion = result;
+      })
+    },
     setKeysFromStorage() {
       this.s3Bucket = this.appStore.s3BucketName;
       this.s3Access = this.appStore.s3AccessKey;

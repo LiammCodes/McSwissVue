@@ -539,7 +539,7 @@ export default defineComponent({
       }
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
-        await this.fileObjects.forEach(async (fileObj: any, index: number) => {
+        this.fileObjects.forEach(async (fileObj: any, index: number) => {
           const fileData = this.fs.readFileSync(fileObj.file.path);
           const options = {
             method: 'POST',

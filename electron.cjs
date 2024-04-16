@@ -1,14 +1,16 @@
 const { app, BrowserWindow, Notification, ipcMain, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
+const { autoUpdater, AppUpdater } = require('electron-updater')
 
-const NOTIFICATION_TITLE = 'Basic Notification';
-const NOTIFICATION_BODY = 'Notification from the Main process';
+// const NOTIFICATION_TITLE = 'Basic Notification';
+// const NOTIFICATION_BODY = 'Notification from the Main process';
 
-function showNotification () {
-  new Notification({ title: NOTIFICATION_TITLE, body: NOTIFICATION_BODY }).show()
-}
+// function showNotification () {
+//   new Notification({ title: NOTIFICATION_TITLE, body: NOTIFICATION_BODY }).show()
+// }
 
 let mainWindow;
 function createWindow() {
@@ -62,13 +64,26 @@ function clearTempFiles() {
   }
 }
 
+autoUpdater.on("update-available", (info) => {
+  autoUpdater.downloadUpdate();
+})
+
+
 app.whenReady().then(() => {
+
+  autoUpdater.checkForUpdates()
+
   require('@electron/remote/main').initialize()
   createWindow();
 
   ipcMain.handle('get-app-path', async (event) => {
     const result = isDev ? 'src/temp' : app.getPath("temp");
     return result;
+  })
+
+  ipcMain.handle('get-version', async (event) => {
+    const packageJson = require('./package.json')
+    return packageJson.version;
   })
 
   ipcMain.handle('dialog', async (event, method, params) => {       
@@ -99,7 +114,9 @@ app.whenReady().then(() => {
     }
   });
 
-}).then(showNotification);
+});
+
+// .then(showNotification)
 
 app.on('window-all-closed', () => {
   clearTempFiles();
