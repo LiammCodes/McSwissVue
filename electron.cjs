@@ -5,6 +5,8 @@ const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
 const { autoUpdater, AppUpdater } = require('electron-updater')
 
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 
 function showNotification (title, body) {
   new Notification({ title: title, body: body }).show()
@@ -67,6 +69,11 @@ autoUpdater.on("update-available", (info) => {
   autoUpdater.downloadUpdate();
 })
 
+autoUpdater.on("update-downloaded", (info) => {
+  showNotification('Update Downloaded', `Version ${pythonjs.version} has been installed`)
+  autoUpdater.downloadUpdate();
+})
+
 
 app.whenReady().then(() => {
   autoUpdater.checkForUpdates()
@@ -80,13 +87,11 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('get-version', async (event) => {
-    const packageJson = require('./package.json')
-    return packageJson.version;
+    return packagejs.version;
   })
 
   ipcMain.handle('get-version-release', async (event) => {
-    const packageJson = require('./package.json')
-    return packageJson.versionReleased;
+    return packagejs.versionReleased;
   })
 
   ipcMain.handle('dialog', async (event, method, params) => {       
