@@ -157,6 +157,7 @@ export default defineComponent({
   },
   async mounted() {
     await this.setVersion();
+    await this.setVersionRelease();
     this.setKeysFromStorage();
   },
   methods: {

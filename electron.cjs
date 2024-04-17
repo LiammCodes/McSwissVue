@@ -64,19 +64,8 @@ function clearTempFiles() {
   }
 }
 
-autoUpdater.on("update-available", (info) => {
-  showNotification('Update Available', 'Downloading the newest update')
-  autoUpdater.downloadUpdate();
-})
-
-autoUpdater.on("update-downloaded", (info) => {
-  showNotification('Update Downloaded', `Version ${pythonjs.version} has been installed`)
-  autoUpdater.downloadUpdate();
-})
-
-
 app.whenReady().then(() => {
-  autoUpdater.checkForUpdates()
+  // autoUpdater.checkForUpdates()
 
   require('@electron/remote/main').initialize()
   createWindow();
@@ -123,6 +112,21 @@ app.whenReady().then(() => {
   });
 
 });
+
+// autoUpdater.on("update-available", (info) => {
+//   showNotification('Update Available', 'Downloading the newest update')
+//   autoUpdater.downloadUpdate();
+// })
+
+// autoUpdater.on("update-downloaded", (info) => {
+//   showNotification('Update Downloaded', `Version ${pythonjs.version} has been installed`)
+//   autoUpdater.downloadUpdate();
+// })
+
+// autoUpdater.on("error", (info) => {
+//   showNotification('Error Updating', `${info}`)
+//   autoUpdater.downloadUpdate();
+// })
 
 app.on('window-all-closed', () => {
   clearTempFiles();
