@@ -32,23 +32,23 @@ export default defineComponent({
   computed: {
     fileBitrate(): string {
       if (this.selectedFile) {
-        return this.selectedFile.duration
+        return this.selectedFile.bitrate
       } else {
-        return 'Err :('
+        return 'Error :('
       }
     },
     fileDuration(): string {
       if (this.selectedFile) {
-        return this.selectedFile.bitrate
+        return this.selectedFile.duration
       } else {
-        return 'Err :('
+        return 'Error :('
       }
     },
     fileSize(): string {
       if (this.selectedFile) {
         return this.formatedFileSize(+this.selectedFile.file!.size)
       } else {
-        return 'Err :('
+        return 'Error :('
       }
     }
   },
