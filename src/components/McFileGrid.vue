@@ -4,7 +4,21 @@
     style="overflow-y: auto; overflow-x: hidden;" 
     @dragover.prevent="handleDragOver"
     @drop.prevent="handleDrop"  
+    @click="handleOutsideClick"
   >
+    <!-- context menu -->
+    <div v-if="isMenuOpen" class="menu" :style="{ top: `${menuPosition.y}px`, left: `${menuPosition.x}px` }">
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mb-2" >
+        <li 
+          v-for="(option, index) in menuOptions" 
+          :key="index"
+          @click="handleMenuOptionClick(option.value)"
+        >
+          <a>{{ option.label }}</a>  
+        </li>
+      </ul>
+    </div>
+    
     <input 
       type="file" 
       name="file_upload" 
@@ -19,9 +33,11 @@
       <button 
         v-for="fileObj, index in fileObjects"
         :key="fileObj.file!.name"
-        class="w-full p-2 my-1 rounded-md hover:bg-base-300 focus:outline-none focus:bg-base-300"
+        class="w-full p-2 my-1 rounded-md hover:bg-base-300 focus:outline-none"
+        :class="selectedFile == fileObj ? 'bg-base-300': ''"
         ref="fileBtns"
         @click="handleFileSelection(fileObj)"
+        @contextmenu.prevent="openMenu($event, fileObj, index)"
       >
         <div class="flex items-center justify-between space-x-3">
           <div class="flex items-center space-x-3">
@@ -42,11 +58,13 @@
 
     <div v-else class="col-span-3 gap-2 justify-start">
       <button 
-        v-for="fileObj in fileObjects"
+        v-for="fileObj, index in fileObjects"
         :key="fileObj.file!.name"
-        class="w-32 items-center p-2 m-1 rounded-xl hover:bg-base-300 focus:outline-none focus:ring focus:ring-primary"
+        :class="selectedFile == fileObj ? 'ring ring-primary': ''"
+        class="w-32 items-center p-2 m-1 rounded-xl hover:bg-base-300 focus:outline-none"
         ref="fileBtns"
         @click="handleFileSelection(fileObj)"
+        @contextmenu.prevent="openMenu($event, fileObj, index)"
       >
         <div class="flex flex-col items-center">
           <img 
@@ -63,6 +81,7 @@
 </template>
 
 <script lang="ts">
+
 import { defineComponent, PropType, } from "vue";
 import { FileData, SelectOption, Status } from "../types/Types";
 
@@ -73,6 +92,11 @@ export default defineComponent({
       required: true,
     },
     list: {
+      type: Boolean,
+      required: false,
+      default: false
+    },
+    processing: {
       type: Boolean,
       required: false,
       default: false
@@ -97,7 +121,7 @@ export default defineComponent({
     const spawn = require('child_process').spawn;
     const fs = require('fs');
 
-    return { ipcRenderer, path, ffmpeg, ffprobe, spawn, fs }
+    return { ffmpeg, ffprobe, fs, ipcRenderer, path, spawn }
   },
 
   data() {
@@ -107,7 +131,16 @@ export default defineComponent({
       tempPath: '' as string,
       ffmpegPath: '' as string,
       ffprobePath: '' as string,
+      fileIndexCtxClicked: null as null | number,
+      isMenuOpen: false as boolean,
       multipleFiles: false as boolean,
+      menuPosition: { x: 0, y: 0 } as any,
+      menuOptions: [{
+        label: "Remove",
+        value: "remove"
+      }],
+      selectedFile: {} as FileData,
+      showContextMenu: false as boolean
     }
   },
 
@@ -128,6 +161,41 @@ export default defineComponent({
     },
   },
   methods: {
+    handleOutsideClick() {
+      this.isMenuOpen = false;
+    },
+
+    removeFile(index: number) {
+      console.log(index)
+      this.fileObjects.splice(index, 1);
+      this.handleFileSelection(this.fileObjects[0]);
+
+    },
+    handleMenuOptionClick(value: string) {
+      if (value === 'remove') {
+        console.log("Remove file")
+        console.log(this.fileIndexCtxClicked)
+        if (this.fileIndexCtxClicked !== null){
+          this.removeFile(this.fileIndexCtxClicked);
+          this.$emit('files-loaded', this.fileObjects);
+        }
+      }
+
+      this.isMenuOpen = false;
+    },
+    openMenu(event: any, fileObj: FileData, fileIndex: number) {
+      if (!this.processing) {
+        console.log(this.processing)
+        this.isMenuOpen = true;
+        this.handleFileSelection(fileObj);
+        this.fileIndexCtxClicked = fileIndex;
+        this.menuPosition = { x: event.pageX, y: event.pageY };
+      }
+    },
+    closeMenu() {
+      this.isMenuOpen = false;
+    },
+
     selectFirstFile() {
       const fileButtons = this.$refs.fileBtns as HTMLElement[]; // Type assertion
       if (fileButtons && fileButtons.length > 0) {
@@ -292,14 +360,11 @@ export default defineComponent({
       return this.secondsToString(cutPointInSeconds);
     },
 
-    handleFileSelection(fileObj: object) {
+    handleFileSelection(fileObj: FileData) {
+      this.selectedFile = fileObj;
       this.$emit('file-selected', fileObj);
     },
 
-    // unused right now
-    removeFile(file: File) {
-      this.$emit('remove-file', file);
-    },
     // unused right now
     openFile(file: File) {
       this.$emit('open-file', file);
@@ -346,3 +411,14 @@ export default defineComponent({
   },
 });
 </script>
+<style>
+.menu {
+  position: fixed;
+  z-index: 9999;
+  padding: 5px;
+}
+.menu div {
+  cursor: pointer;
+  padding: 5px;
+}
+</style>

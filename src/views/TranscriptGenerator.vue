@@ -9,7 +9,16 @@
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-4 gap-2 h-full">
       <!-- file grid col -->
-      <mc-file-grid :list="true" class="col-span-3 h-full" :files="files" :file-statuses="statuses" :method="selectedMethod" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded"/>
+      <mc-file-grid 
+        class="col-span-3 h-full" 
+        :files="files" 
+        :file-statuses="statuses" 
+        :list="true" 
+        :method="selectedMethod" 
+        :processing="transcribing"
+        @file-selected="handleFileSelected" 
+        @files-loaded="handleFilesLoaded"
+      />
       <!-- metadata col -->
       <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl" :files-loading="filesLoading" :selected-file="selectedFile" />
     </div>
@@ -228,18 +237,21 @@ export default defineComponent({
       }
     },
 
+    resetStatuses() {
+      this.statuses = this.fileObjects.map(_ => ({ 
+        label: "", 
+        color: "primary", 
+        value: 0
+      }));
+    },
+
     handleFilesLoaded(fileObjects: FileData[]) {
       if (fileObjects) {
         this.filesLoading = false
         this.fileObjects = fileObjects;
-        this.statuses = fileObjects.map(_ => ({ 
-          label: "", 
-          color: "primary", 
-          value: 0
-        }));
+        this.resetStatuses();
         this.setSuccessToastMsg(fileObjects.length)
       }
-      console.log(fileObjects);
     },
 
     async setOutputPath() {
@@ -278,27 +290,40 @@ export default defineComponent({
       }
     },
 
-    handleTranscriptionComplete() {
+    handleTranscriptionComplete(error: string = '') {
       this.transcribing = false;
 
-      if (this.overwriteResponse || this.overwriteResponse === null) {
-        this.toastMessage = this.successToastMessage;
+
+      if (error === '') {
+        if (this.overwriteResponse || this.overwriteResponse === null) {
+          this.toastMessage = this.successToastMessage;
+        } else {
+          this.toastMessage = 'Transcription aborted.';
+        }
+
+        this.toast = {
+          message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
+          kind: 'alert-success',
+          timeout: 5000,
+        }
+        this.$emit('toggle-toast', this.toast);
+        new window.Notification('Transcript Generation Complete', { body: this.successToastMessage });
       } else {
-        this.toastMessage = 'Transcription aborted.';
+        this.resetStatuses();
+        this.toast = {
+          message: "Error: " + error,
+          kind: 'alert-error',
+          timeout: 5000,
+        }
+        this.$emit('toggle-toast', this.toast);
       }
 
-      this.toast = {
-        message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
-        kind: 'alert-success',
-        timeout: 5000,
-      }
-      this.$emit('toggle-toast', this.toast);
-      new window.Notification('Preview Generation Complete', { body: this.successToastMessage });
+      
     },
 
     anyTranscriptionExists(): boolean {
-      for (const file of this.files) {
-        const newFile = removeExtension(file.name) + this.outputFileExtension;
+      for (const file of this.fileObjects) {
+        const newFile = removeExtension(file.file!.name) + this.outputFileExtension;
         const newFilePath = this.path.join(this.outputFilePath, newFile);
         if (fileAlreadyExists(newFilePath)) {
           return true;
@@ -463,7 +488,7 @@ export default defineComponent({
 
         // Set the parameters for file to upload
         const params = {
-          Bucket: this.appStore.s3BucketName as string,
+          Bucket: this.appStore.s3BucketName,
           Key: filename,
           Body: response,
           ContentType: "text/vtt"
@@ -479,17 +504,16 @@ export default defineComponent({
         };
 
         console.log('File uploaded successfully. File location:', data.Location);
-      } catch (error) {
+      } catch (error: any) {
         console.log('Error uploading file:', error);
+        this.handleTranscriptionComplete('Error uploading file: ' + error.message);
       }
     },
 
 
     async startStatusUpdates(trintId: string, index: number, filename: string) {
-
       // Periodically check the status of the file
       let checker = setInterval(async () => {
-        
         const options = {
           method: 'GET',
           headers: {
@@ -497,9 +521,17 @@ export default defineComponent({
             'api-key': this.appStore.trintApiKey as string
           },
         };
-
+        
         fetch(`https://api.trint.com/export/webvtt/${trintId}?captions-by-paragraph=false&max-subtitle-character-length=37&highlights-only=false&enable-speakers=false&speaker-on-new-line=false&speaker-uppercase=false&skip-strikethroughs=false`, options)
-          .then(response => response.json())
+          .then(response => {
+            // Check if the response status is in the range of 200-299 (success)
+            if (response.ok) {
+              return response.json(); // Parse the response body as JSON
+            } else {
+              // If response status is not in the success range, throw an error
+              throw new Error(`${response.status}`);
+            }
+          })
           .then(async (response: any) => {
             console.log(response);
             this.statuses[index] = {
@@ -507,21 +539,64 @@ export default defineComponent({
               color: "text-accent",
               value: 3
             };
-            
-            if (this.selectedMethod.value === "upload") {
-              this.uploadToS3WithUrl(response.url, index, (this.removeExtension(filename) + '.vtt'))
-            } else {
-              this.downloadTranscript(response.url, index, filename)
-            }
-
             clearInterval(checker);
+            if (this.selectedMethod.value === "upload") {
+              await this.uploadToS3WithUrl(response.url, index, (this.removeExtension(filename) + '.vtt'))
+            } else {
+              await this.downloadTranscript(response.url, index, filename)
+            }
           })
-          .catch(err => {
+          .catch((err: any) => { // TODO: bad attempt at err handling for this.. 
+            if (err === 'Error: 404') {
+              console.error('404 Not Found error:', err);
+              // Handle 404 error
+            } else {
+              // Handle other errors
+              console.error('Fetch error:', err);
+            }
             console.log(`PING:${trintId} - Incomplete`)
           });
+      }, 30000); // Check status every 30 seconds
+    },
 
-        
-      }, 10000); // Check status every 10 seconds
+    async uploadToTrint(fileObj: any, index: number) {
+      const fileData = this.fs.readFileSync(fileObj.file.path);
+      const options = {
+        method: 'POST',
+        url: `https://upload.trint.com/?filename=${(fileObj.file.name).replace(" ", "%20")}`,
+        encoding: null,
+        body: fileData,
+        headers: {
+          'api-key': this.appStore.trintApiKey,
+          'content-type': 'video/mp4',
+        }
+      };
+
+      this.statuses[index] = {
+        label: "Uploading to Trint", 
+        color: "text-primary", 
+        value: 1 
+      }
+              
+      await new Promise<void>((resolve, reject) => {
+        this.request(options, (error: any, response: any, body: any) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          const responseBody = response.body.toString();
+          const responseObject = JSON.parse(responseBody);
+          const trintId = responseObject.trintId;
+          console.log(trintId)
+          this.statuses[index] = {
+            label: "Transcribing",
+            color: "text-warning",
+            value: 2
+          };
+          this.startStatusUpdates(trintId, index, fileObj.file.name);
+          resolve(); // Resolve the Promise once the asynchronous operation is done
+        });
+      });
     },
 
     async transcribe() {
@@ -539,40 +614,10 @@ export default defineComponent({
       }
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
-        this.fileObjects.forEach(async (fileObj: any, index: number) => {
-          const fileData = this.fs.readFileSync(fileObj.file.path);
-          const options = {
-            method: 'POST',
-            url: `https://upload.trint.com/?filename=${(fileObj.file.name).replace(" ", "%20")}`,
-            encoding: null,
-            body: fileData,
-            headers: {
-              'api-key': this.appStore.trintApiKey,
-              'content-type': 'video/mp4',
-            }
-          };
-
-          this.statuses[index] = {
-            label: "Uploading to Trint", 
-            color: "text-primary", 
-            value: 1 
-          }
-                  
-          await this.request(options, async (error: any, response: any, body: any) => {
-            if (error) throw new Error(error);
-            const responseBody = response.body.toString(); // Convert the Buffer to string
-            const responseObject = JSON.parse(responseBody); // Parse the JSON string to an object
-            const trintId = responseObject.trintId; // Extract the trintId from the response object
-            console.log(trintId)
-            this.statuses[index] = {
-              label: "Transcribing",
-              color: "text-warning",
-              value: 2
-            };
-            this.startStatusUpdates(trintId, index, fileObj.file.name);
-          });
-          
-        }); 
+        for (let i = 0; i < this.fileObjects.length; i++) {
+          console.log("index: " + i)
+          await this.uploadToTrint(this.fileObjects[i], i);
+        }
       } else {
         this.handleTranscriptionComplete()
       }

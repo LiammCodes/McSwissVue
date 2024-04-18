@@ -95,6 +95,7 @@ export default defineComponent({
       errorMessage: '' as string,
       files: ref<File[]>([]),
       filesLoading: true as boolean,
+      fileObjects: [] as FileData[],
       generating: false as boolean,
       outputFilePath: 'None' as string,
       outputFileExtension: '.png' as string,
@@ -164,8 +165,9 @@ export default defineComponent({
       }
     },
 
-    handleFilesLoaded(fileObjects: object[]) {
+    handleFilesLoaded(fileObjects: FileData[]) {
       this.filesLoading = false
+      this.fileObjects = fileObjects;
       this.setSuccessToastMsg(fileObjects.length)
       
       // get shortest video durration

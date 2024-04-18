@@ -4,7 +4,7 @@
   "description": "A video editing toolbox",
   "private": true,
   "version": "0.1.2",
-  "versionReleased": "2024-04-17",
+  "versionReleased": "2024-04-18",
   "type": "module",
   "main": "./electron.js",
   "scripts": {
