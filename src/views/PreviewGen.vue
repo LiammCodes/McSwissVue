@@ -9,7 +9,13 @@
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-4 gap-2 h-full">
       <!-- file grid col -->
-      <mc-file-grid class="col-span-3 h-full" :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
+      <mc-file-grid 
+        class="col-span-3 h-full" 
+        :files="files" 
+        :processing="generating"
+        @file-selected="handleFileSelected" 
+        @files-loaded="handleFilesLoaded"
+      >
         <template v-slot:spacing>
           <div class="h-full"></div>
         </template>

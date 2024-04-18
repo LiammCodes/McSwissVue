@@ -9,7 +9,13 @@
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
     <div class="grid grid-cols-4 gap-2 h-full">
       <!-- file grid col -->
-      <mc-file-grid class="col-span-3 h-full" :files="files" @file-selected="handleFileSelected" @files-loaded="handleFilesLoaded">
+      <mc-file-grid 
+        class="col-span-3 h-full" 
+        :files="files" 
+        :processing="converting"
+        @file-selected="handleFileSelected" 
+        @files-loaded="handleFilesLoaded"
+      >
         <template v-slot:spacing>
           <div class="h-full"></div>
         </template>
@@ -21,7 +27,7 @@
 
   <mc-data-intake v-if="!showFileUpload">
     <template v-slot:data-intake>
-      <div v-if="!generating" class="flex justify-between items-center gap-10">
+      <div v-if="!converting" class="flex justify-between items-center gap-10">
         <div class="space-y-2">
           <div class="flex justify-end items-center space-x-2">
             <div class="flex items-center w-full space-x-2">
@@ -123,7 +129,7 @@ export default defineComponent({
       fileObjects: [] as FileData[],
       filesLoading: true as boolean,
       formatDropdownOpen: false as boolean,
-      generating: false as boolean,
+      converting: false as boolean,
       outputFilePath: 'None' as string,
       outputFileExtension: '.mp4' as string,
       overwriteResponse: null as null | boolean,
@@ -249,7 +255,7 @@ export default defineComponent({
     },
 
     handleConversionComplete() {
-      this.generating = false;
+      this.converting = false;
       this.progress = 0;
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
@@ -279,7 +285,7 @@ export default defineComponent({
     },
 
     async convertVideos() {
-      
+    
       // check if any new files already exist
       if (this.anyVideosExists()) {
         // Toggle the modal
@@ -292,8 +298,6 @@ export default defineComponent({
         });
       } 
 
-
-      
       if (this.overwriteResponse || this.overwriteResponse === null) {
         this.fileObjects.forEach((fileObj: any) => {
           const ffmpegCommand = [
@@ -307,8 +311,7 @@ export default defineComponent({
             this.path.join(this.outputFilePath, this.removeExtension(fileObj.file.name) + this.outputFileExtension) // Output file
           ];
 
-
-          this.generating = true;
+          this.converting = true;
           const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
           
           if (childProcess) { // Check if childProcess is not null
