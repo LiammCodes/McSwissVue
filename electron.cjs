@@ -64,6 +64,10 @@ function clearTempFiles() {
   }
 }
 
+app.on('ready', function()  {
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
 app.whenReady().then(() => {
   // autoUpdater.checkForUpdates()
 

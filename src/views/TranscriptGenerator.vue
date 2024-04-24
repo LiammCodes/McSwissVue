@@ -390,27 +390,30 @@ export default defineComponent({
         });
     },
 
+    async updateS3Creds(){
+      const data = await new Promise<any>((resolve, reject) => {
+        this.s3.headBucket({
+          Bucket: this.appStore.s3BucketName as string,
+        }, (err: Error, data: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(data);
+          }
+        });
+      });
+      // Set the region and access keys
+      this.aws.config.update({
+        region: data.BucketRegion,
+        accessKeyId: this.appStore.s3AccessKey as string,
+        secretAccessKey: this.appStore.s3SecretKey as string,
+        apiVersion: 'latest'
+      });
+    },
+
     async checkS3Connection(): Promise<boolean> {
       try {
-        const data = await new Promise<any>((resolve, reject) => {
-          this.s3.headBucket({
-            Bucket: this.appStore.s3BucketName as string,
-          }, (err: Error, data: any) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(data);
-            }
-          });
-        });
-
-        // Set the region and access keys
-        this.aws.config.update({
-          region: data.BucketRegion,
-          accessKeyId: this.appStore.s3AccessKey as string,
-          secretAccessKey: this.appStore.s3SecretKey as string
-        });
-
+        this.updateS3Creds();
         return true; // Connection successful
       } catch (error) {
         console.log(error);
@@ -430,7 +433,9 @@ export default defineComponent({
         color: "info",
         value: 4
       }
+
       // Create a new instance of the S3 class
+      await this.updateS3Creds();
       const s3 = new this.aws.S3();
      
       // Set the parameters for file to upload
@@ -484,6 +489,7 @@ export default defineComponent({
         const response = await this.createReadStreamFromUrl(url);
 
         // Create a new instance of the S3 class
+        await this.updateS3Creds();
         const s3 = new this.aws.S3();
 
         // Set the parameters for file to upload

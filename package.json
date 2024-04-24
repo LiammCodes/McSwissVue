@@ -3,7 +3,7 @@
   "author": "Liam Codes",
   "description": "A video editing toolbox",
   "private": true,
-  "version": "0.1.3",
+  "version": "0.2.0",
   "versionReleased": "2024-04-23",
   "type": "module",
   "main": "./electron.js",
@@ -13,7 +13,7 @@
     "serve": "vite preview",
     "electron:dev": "npm run dev & electron ./electron.cjs",
     "electron:build": "npm run build && electron-builder",
-    "publish": "electron-builder --win -p always"
+    "publish": "electron-builder --win --ia32 -p always"
   },
   "repository": {
     "type": "git",
@@ -91,10 +91,12 @@
     "linux": {
       "target": "AppImage"
     },
-    "publish": [{
-      "provider": "github",
-      "owner": "LiammCodes",
-      "repo": "McSwissVue"
-    }]
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "LiammCodes",
+        "repo": "McSwissVue"
+      }
+    ]
   }
 }

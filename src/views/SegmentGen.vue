@@ -77,10 +77,10 @@
       <div class="py-3" v-else>
         <div class="mb-2 text-base font-medium flex justify-between">
           <span>Generating Segments...</span>
-          <span>{{ Math.floor(progress) }}%</span>
+          <span>{{ Math.floor(progressStr) }}%</span>
         </div>
         <div class="w-full bg-base-100 rounded-full h-2.5">
-          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
+          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progressStr + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
     </template>
@@ -142,8 +142,8 @@ export default defineComponent({
       smallestStartTime: '' as string,
 
       largestTimeDenominator: null as null | number,
-
-      progress: 0 as number,
+      currentProgress: 0 as number,
+      totalProgress: 0 as number,
       selectedFile: {
         bitrate: '' as string,
         duration: '' as string,
@@ -173,10 +173,21 @@ export default defineComponent({
       toastMessage: '' as string,
     }
   },
-  watch: {},
+  watch: {
+    currentProgress(newVal: number, oldVal: number) {
+      if (newVal < oldVal) {
+        this.totalProgress += 100;
+      }
+    }
+  },
   mounted() {
     this.setOutputPathFromStorage();
     this.setSuffixFromStorage();
+  },
+  computed: {
+    progressStr() {
+      return (this.currentProgress + this.totalProgress) / this.segments.length;
+    }
   },
   methods: {
     fileAlreadyExists,
@@ -332,57 +343,58 @@ export default defineComponent({
       } 
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
-      
-        // Variable to keep track of the number of completed segments
-        let completedSegments = 0;
+        // Variable to keep track of the current segment index
+        let currentSegmentIndex = 0;
 
-        this.segments.forEach((segment: Segment, i: number) => {
-          const ffmpegCommand = [
-            // @ts-ignore
-            '-i', this.files[0].path,
-            '-ss', segment.startTime,
-            '-to', segment.endTime,
-            '-b:v', '3000k',
-            '-progress', 'pipe:1',
-            this.path.join(this.outputFilePath, this.removeExtension(this.files[0].name) + "_" + String.fromCharCode(i+97) + this.outputFileExtension)
-          ];
+        // Function to process the next segment recursively
+        const processNextSegment = async () => {
+          if (currentSegmentIndex < this.segments.length) {
+            const segment = this.segments[currentSegmentIndex];
+            const segmentSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(currentSegmentIndex + 97) : currentSegmentIndex + 1; 
+            const ffmpegCommand = [
+              // @ts-ignore
+              '-i', this.files[0].path,
+              '-ss', segment.startTime,
+              '-to', segment.endTime,
+              '-b:v', '3000k',
+              '-progress', 'pipe:1',
+              this.path.join(this.outputFilePath, this.removeExtension(this.files[0].name) + "_" + segmentSuffix + this.outputFileExtension)
+            ];
 
-          this.generating = true;
-          const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
-          
-          if (childProcess) { // Check if childProcess is not null
-            childProcess.stdout.on('data', (data: any) => {
-              /* 
-                This is required for any tools that run more than one child process at once (aka any tools that accept more than one video)
-                this ensures the progress bar doesn't ever go down instead of up... not an ideal solution but the progress handling in 
-                ffmpeg is wack :(
-              */
-              const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
-              if (this.progress < this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern)) {
-                this.progress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern);
-              }
-            });
-            childProcess.stderr.on('data', async (data: any) => {
-              const message = data.toString().trim();
-              if (message.includes('Overwrite? [y/N]')) {
-                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
-                childProcess.stdin.write(overwrite + '\n');
-              } 
-            });
-            childProcess.on('close', (code: any) => {
-              completedSegments++;
-              if (completedSegments === this.segments.length) {
-                this.handleGenerationComplete();
-              }
-            });
-            childProcess.on('error', (err: any) => {
-              // pass
-            });
+            this.generating = true;
+            const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
+            
+            if (childProcess) { // Check if childProcess is not null
+              childProcess.stdout.on('data', (data: any) => {
+                const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
+                this.currentProgress = this.parseFFmpegProgress(data, segment.startTime, segment.endTime, pattern);                
+              });
+              childProcess.stderr.on('data', async (data: any) => {
+                const message = data.toString().trim();
+                if (message.includes('Overwrite? [y/N]')) {
+                  const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+                  childProcess.stdin.write(overwrite + '\n');
+                } 
+              });
+              childProcess.on('close', (code: any) => {
+                currentSegmentIndex++;
+                processNextSegment(); // Process the next segment recursively
+              });
+              childProcess.on('error', (err: any) => {
+                // pass
+              });
+            } else {
+              console.error('Failed to spawn FFMpeg process.');
+              currentSegmentIndex++;
+              processNextSegment(); // Process the next segment recursively
+            }
           } else {
-            console.error('Failed to spawn FFMpeg process.');
+            this.handleGenerationComplete(); // All segments processed, handle generation completion
           }
-          this.progress = 0;
-        });
+        };
+
+        // Start processing the first segment
+        await processNextSegment();
       } else {
         this.handleGenerationComplete();
       }
@@ -391,12 +403,13 @@ export default defineComponent({
     handleGenerationComplete() {
       this.setSuccessToastMsg(this.segments.length)
       this.generating = false;
-      this.progress = 0;
+      this.totalProgress = 0;
+      this.currentProgress = 0;
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
         this.toastMessage = this.successToastMessage;
       } else {
-        this.toastMessage = 'Preview generation aborted.';
+        this.toastMessage = 'Segment generation aborted.';
       }
 
       this.toast = {

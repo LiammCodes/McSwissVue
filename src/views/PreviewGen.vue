@@ -55,10 +55,10 @@
       <div class="py-3" v-else>
         <div class="mb-2 text-base font-medium flex justify-between">
           <span>Generating Previews...</span>
-          <span>{{ Math.floor(progress) }}%</span>
+          <span>{{ Math.floor(progressStr) }}%</span>
         </div>
         <div class="w-full bg-base-100 rounded-full h-2.5">
-          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
+          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progressStr + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
     </template>
@@ -112,7 +112,8 @@ export default defineComponent({
       outputFilePath: 'None' as string,
       outputFileExtension: '.mp4' as string,
       overwriteResponse: null as null | boolean,
-      progress: 0 as number,
+      currentProgress: 0 as number,
+      totalProgress: 0 as number,
       selectedFile: {
         bitrate: '' as string,
         duration: '' as string,
@@ -130,8 +131,20 @@ export default defineComponent({
       successToastMessage: '' as string,
     }
   },
+  watch: {
+    currentProgress(newVal: number, oldVal: number) {
+      if (newVal < oldVal) {
+        this.totalProgress += 100;
+      }
+    }
+  },
   mounted() {
     this.setOutputPathFromStorage();
+  },
+  computed: {
+    progressStr() {
+      return (this.currentProgress + this.totalProgress) / this.files.length;
+    }
   },
   methods: {
     setOutputPathFromStorage() {
@@ -236,7 +249,8 @@ export default defineComponent({
 
     handleGenerationComplete() {
       this.generating = false;
-      this.progress = 0;
+      this.currentProgress = 0;
+      this.totalProgress = 0;
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
         this.toastMessage = this.successToastMessage;
@@ -278,46 +292,66 @@ export default defineComponent({
       } 
 
       if (this.overwriteResponse || this.overwriteResponse === null) {
+        // Variable to keep track of the current file index
+        let currentFileIndex = 0;
 
-        this.files.forEach((file: any) => {
-          const ffmpegCommand = [
-            '-i', file.path,
-            '-ss', this.startTime,
-            '-to', this.endTime,
-            '-b:v', '3000k',
-            '-progress', 'pipe:1',
-            this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFileExtension)
-          ];
+        // Function to process the next file recursively
+        const processNextFile = async () => {
+          if (currentFileIndex < this.files.length) {
+            const file = this.files[currentFileIndex] as any;
+            const ffmpegCommand = [
+              '-i', file.path,
+              '-ss', this.startTime,
+              '-to', this.endTime,
+              '-b:v', '3000k',
+              '-progress', 'pipe:1',
+              this.path.join(this.outputFilePath, this.removeExtension(file.name) + " Prev" + this.outputFileExtension)
+            ];
 
-          this.generating = true;
-          const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
-          
-          if (childProcess) { // Check if childProcess is not null
-            childProcess.stdout.on('data', (data: any) => {
-              const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
-              this.progress = this.parseFFmpegProgress(data, this.startTime, this.endTime, pattern);
-            });
-            childProcess.stderr.on('data', async (data: any) => {
-              const message = data.toString().trim();
+            this.generating = true;
+            const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ffmpegCommand);
+            
+            if (childProcess) { // Check if childProcess is not null
+              childProcess.stdout.on('data', (data: any) => {
+                const pattern = /out_time=(\d+:\d+:\d+\.\d+)/;
+                this.currentProgress = this.parseFFmpegProgress(data, this.startTime, this.endTime, pattern);
 
-              if (message.includes('Overwrite? [y/N]')) {
-                const overwrite: string = this.overwriteResponse ? 'y' : 'n';
-                childProcess.stdin.write(overwrite + '\n');
-              } 
-            });
-            childProcess.on('close', (code: any) => this.handleGenerationComplete());
-            childProcess.on('error', (err: any) => {
-              // console.log(err)
-            });
+              });
+              childProcess.stderr.on('data', async (data: any) => {
+                const message = data.toString().trim();
+
+                if (message.includes('Overwrite? [y/N]')) {
+                  const overwrite: string = this.overwriteResponse ? 'y' : 'n';
+                  childProcess.stdin.write(overwrite + '\n');
+                } 
+              });
+              childProcess.on('close', (code: any) => {
+                currentFileIndex++;
+                processNextFile(); // Process the next file recursively
+              });
+              childProcess.on('error', (err: any) => {
+                // console.log(err)
+                currentFileIndex++;
+                processNextFile(); // Process the next file recursively
+              });
+            } else {
+              console.error('Failed to spawn FFMpeg process.');
+              currentFileIndex++;
+              processNextFile(); // Process the next file recursively
+            }
+            this.currentProgress = 0;
           } else {
-            console.error('Failed to spawn FFMpeg process.');
+            this.handleGenerationComplete(); // All files processed, handle generation completion
           }
-        });
+        };
+
+        // Start processing the first file
+        await processNextFile();
       } else {
-        this.handleGenerationComplete()
+        this.handleGenerationComplete();
       }
-      
-    }
+    },
+
   }
 });
 </script>
