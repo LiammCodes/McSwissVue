@@ -1,5 +1,5 @@
 <template>
-  <div id="themed-app" :data-theme="appStore.theme">
+  <div id="themed-app" :class="isMac ? 'macHeight' : 'winHeight'" :data-theme="appStore.theme">
     <mc-toast 
       :showToast="showToast" 
       @close="showToast = false"
@@ -27,12 +27,19 @@ export default defineComponent({
   },
   setup() {
     const appStore = useAppStore();
-    return { appStore };
+    const os = require('os');
+    return { appStore, os };
   },
   data() {
     return {
       showToast: false as boolean,
       toast: {} as Toast
+    }
+  },
+  computed: {
+    isMac() {
+      let osType = this.os.type + "" as string;
+      return osType.toLowerCase() == "darwin";
     }
   },
   mounted() {
@@ -48,7 +55,12 @@ export default defineComponent({
 });
 </script>
 <style scoped>
-#themed-app {
+.winHeight {
+  height: calc(100vh - 30px)
+}
+
+.macHeight {
   height: calc(100vh - 28px)
 }
+
 </style>
