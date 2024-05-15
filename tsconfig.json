@@ -16,8 +16,8 @@
       "dom"
     ],
     "skipLibCheck": true,
-    "noEmit": false  
+    "noEmit": false
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "/preload.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

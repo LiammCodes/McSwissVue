@@ -1,5 +1,5 @@
 <template>
-  <div class="drawer h-screen" style="overflow-x: hidden;">
+  <div class="drawer h-full" style="overflow-x: hidden;">
     <input id="my-drawer" type="checkbox" v-model="drawerOpen" class="d-toggle" /> 
     <div class="drawer-content flex flex-col p-2" style="overflow-x: hidden;">
       <!-- Navbar -->
@@ -40,7 +40,7 @@
     </div> 
     <div class="drawer-side">
       <label for="my-drawer" class="drawer-overlay"></label> 
-      <ul class="menu p-4 w-80 min-h-full bg-base-100 justify-between">
+      <ul class="menu p-4 w-80 min-h-full bg-base-100 justify-between pt-10">
         <!-- Sidebar content here -->
         <div class="space-y-1">
           <li class="pb-10">
@@ -51,39 +51,41 @@
             </a>
           </li>
           <li @click="handleNavBtnClick(views.previewGen)">
-            <div :class="selectedView === views.previewGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              {{ views.previewGen }}
+            <div class="w-full indicator" :class="selectedView === views.previewGen ? 'bg-base-300' : ''">
+              <span class="px-2">{{ views.previewGen }}</span>
             </div>
           </li>
           <li @click="handleNavBtnClick(views.segmentGen)">
-            <div :class="selectedView === views.segmentGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              {{ views.segmentGen }}
+            <div class="w-full indicator" :class="selectedView === views.segmentGen ? 'bg-base-300' : ''">
+              <span class="px-2">{{ views.segmentGen }}</span>
             </div>
           </li>
           <li @click="handleNavBtnClick(views.hyperThumbnailGen)">
-            <div :class="selectedView === views.hyperThumbnailGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              {{ views.hyperThumbnailGen }}
+            <div class="w-full indicator" :class="selectedView === views.hyperThumbnailGen ? 'bg-base-300' : ''">
+              <span class="px-2">{{ views.hyperThumbnailGen }}</span>
             </div>
           </li>
-
           <li @click="handleNavBtnClick(views.transcriptGen)">
-            <div :class="selectedView === views.transcriptGen ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              {{ views.transcriptGen }}
+            <div class="w-full indicator" :class="selectedView === views.transcriptGen ? 'bg-base-300' : ''">
+              <span class="px-2">{{ views.transcriptGen }}</span>
             </div>
           </li>
-
           <li @click="handleNavBtnClick(views.videoConverter)">
-            <div :class="selectedView === views.videoConverter ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              {{ views.videoConverter }}
+            <div class="w-full indicator" :class="selectedView === views.videoConverter ? 'bg-base-300' : ''">
+              <span class="px-2">{{ views.videoConverter }}</span>
             </div>
           </li>
-
         </div>
         <div>
           <li @click="handleNavBtnClick(views.settings)">
-            <div :class="selectedView === views.settings ? 'w-full indicator' + ' bg-base-300' : 'w-full indicator'">
-              <adjustments-horizontal-icon class="h-5 w-5 ml-1"></adjustments-horizontal-icon>
-              {{ views.settings }}
+            <div class="w-full indicator" :class="selectedView === views.settings ? 'bg-base-300' : ''">
+              <span class="flex items-center px-2">
+                <adjustments-horizontal-icon class="h-4 w-4"/>
+                <span class="px-2">
+                  {{ views.settings }}
+                </span>
+              </span>
+              
             </div>
           </li>
         </div>

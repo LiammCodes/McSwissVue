@@ -33,7 +33,7 @@
               :modelValue="segment"
               @delete-segment="deleteSegment(segment.id)"
             />
-            <button class="btn btn-neutral w-full" @click="addSegment">
+            <button class="btn btn-outline btn-primary w-full" @click="addSegment">
               <plus-circle-icon color="primary" class="h-6 w-6"/>
             </button>
           </div>

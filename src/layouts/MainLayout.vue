@@ -5,9 +5,9 @@
       @close="showToast = false"
       :toast="toast"
     />
-    <mc-drawer>
+    <mc-drawer class="overflow-hidden">
       <template v-slot:tool-view>
-        <router-view @toggle-toast="toggleToast"/>
+        <router-view @toggle-toast="toggleToast" class="overflow-hidden"/>
       </template>
     </mc-drawer>
   </div>
@@ -47,3 +47,8 @@ export default defineComponent({
   }
 });
 </script>
+<style scoped>
+#themed-app {
+  height: calc(100vh - 28px)
+}
+</style>
