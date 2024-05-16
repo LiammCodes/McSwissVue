@@ -1,5 +1,6 @@
 <template>
-  <div id="themed-app" :class="isMac ? 'macHeight' : 'winHeight'" :data-theme="appStore.theme">
+  <!-- for custom title bar -> :class="isMac ? 'macHeight' : 'winHeight'"-->
+  <div id="themed-app" class="h-screen" :data-theme="appStore.theme">
     <mc-toast 
       :showToast="showToast" 
       @close="showToast = false"
@@ -37,12 +38,12 @@ export default defineComponent({
       toast: {} as Toast
     }
   },
-  computed: {
-    isMac() {
-      let osType = this.os.type + "" as string;
-      return osType.toLowerCase() == "darwin";
-    }
-  },
+  // computed: {
+  //   isMac() {
+  //     let osType = this.os.type + "" as string;
+  //     return osType.toLowerCase() == "darwin";
+  //   }
+  // },
   mounted() {
     this.$router.push({name: this.appStore.selectedView})
     console.log(this.appStore.theme);
@@ -56,12 +57,12 @@ export default defineComponent({
 });
 </script>
 <style scoped>
-.winHeight {
+/* .winHeight {
   height: calc(100vh - 30px)
 }
 
 .macHeight {
   height: calc(100vh - 28px)
-}
+} */
 
 </style>
