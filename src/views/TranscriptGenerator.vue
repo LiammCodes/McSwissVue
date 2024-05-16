@@ -403,8 +403,9 @@ export default defineComponent({
         });
       });
       // Set the region and access keys
+      console.log("Bucket: ", data.BucketRegion)
       this.aws.config.update({
-        region: data.BucketRegion,
+        region: data.BucketRegion ?? 'us-east-1',
         accessKeyId: this.appStore.s3AccessKey as string,
         secretAccessKey: this.appStore.s3SecretKey as string,
         apiVersion: 'latest'
@@ -413,7 +414,7 @@ export default defineComponent({
 
     async checkS3Connection(): Promise<boolean> {
       try {
-        this.updateS3Creds();
+        await this.updateS3Creds();
         return true; // Connection successful
       } catch (error) {
         console.log(error);

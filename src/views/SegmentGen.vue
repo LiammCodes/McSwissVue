@@ -23,7 +23,7 @@
         </template>
       </mc-file-grid>
       <!-- segment list col -->
-      <div class="col-span-2 flex flex-wrap gap-2 justify-start items-start rounded-xl h-full" style="overflow-x: hidden;">
+      <div class="col-span-2 flex flex-wrap gap-2 justify-start items-start rounded-md h-full" style="overflow-x: hidden;">
         <div class="w-full space-y-2">
           <!-- scrollable list of secments-->
           <div class="max-h-screen space-y-2">
@@ -33,7 +33,7 @@
               :modelValue="segment"
               @delete-segment="deleteSegment(segment.id)"
             />
-            <button class="btn btn-neutral w-full" @click="addSegment">
+            <button class="btn btn-outline btn-primary w-full" @click="addSegment">
               <plus-circle-icon color="primary" class="h-6 w-6"/>
             </button>
           </div>

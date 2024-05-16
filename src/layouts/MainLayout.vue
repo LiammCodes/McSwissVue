@@ -1,13 +1,14 @@
 <template>
-  <div id="themed-app" :data-theme="appStore.theme">
+  <!-- for custom title bar -> :class="isMac ? 'macHeight' : 'winHeight'"-->
+  <div id="themed-app" class="h-screen" :data-theme="appStore.theme">
     <mc-toast 
       :showToast="showToast" 
       @close="showToast = false"
       :toast="toast"
     />
-    <mc-drawer>
+    <mc-drawer class="overflow-hidden">
       <template v-slot:tool-view>
-        <router-view @toggle-toast="toggleToast"/>
+        <router-view @toggle-toast="toggleToast" class="overflow-hidden"/>
       </template>
     </mc-drawer>
   </div>
@@ -19,6 +20,7 @@ import { useAppStore } from '../stores/appStore';
 import { Toast } from '../types/Types';
 import McToast from '../components/McToast.vue';
 import McDrawer from '../components/McDrawer.vue';
+
 export default defineComponent({
   name: 'MainLayout',
   components: {
@@ -27,7 +29,8 @@ export default defineComponent({
   },
   setup() {
     const appStore = useAppStore();
-    return { appStore };
+    const os = require('os');
+    return { appStore, os };
   },
   data() {
     return {
@@ -35,6 +38,12 @@ export default defineComponent({
       toast: {} as Toast
     }
   },
+  // computed: {
+  //   isMac() {
+  //     let osType = this.os.type + "" as string;
+  //     return osType.toLowerCase() == "darwin";
+  //   }
+  // },
   mounted() {
     this.$router.push({name: this.appStore.selectedView})
     console.log(this.appStore.theme);
@@ -47,3 +56,13 @@ export default defineComponent({
   }
 });
 </script>
+<style scoped>
+/* .winHeight {
+  height: calc(100vh - 30px)
+}
+
+.macHeight {
+  height: calc(100vh - 28px)
+} */
+
+</style>

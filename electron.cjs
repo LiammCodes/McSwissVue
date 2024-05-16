@@ -1,9 +1,13 @@
-const { app, BrowserWindow, Notification, ipcMain, dialog } = require('electron');
+const { setupTitlebar, attachTitlebarToWindow } = require('custom-electron-titlebar/main');
+const { app, BrowserWindow, Notification, Menu, ipcMain, dialog } = require('electron');
 const fs = require('fs');
-const path = require('path');
+const path = require('path')
 const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
 const { autoUpdater, AppUpdater } = require('electron-updater')
+
+// setup the titlebar main process
+// setupTitlebar();
 
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
@@ -16,6 +20,8 @@ let mainWindow;
 function createWindow() {
   mainWindow = new BrowserWindow({
     autoHideMenuBar: true,
+    // titleBarStyle: 'hidden',
+    // titleBarOverlay: true,
     width: 1200,
     minWidth: 1200,
     height: 800,
@@ -24,10 +30,15 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       enableRemoteModule: true,
-      webSecurity: false
+      webSecurity: false,
+      sandbox: false,
+      // preload: path.join(__dirname, 'preload.ts')
     },
     show: false
   });
+
+  // attach fullScreen(f11 and not 'maximized') && focus listeners
+  // attachTitlebarToWindow(mainWindow);
 
   if (isDev) {
     // set timer to allow vite to launch before trying to serve electron app
@@ -70,7 +81,7 @@ app.on('ready', function()  {
 
 app.whenReady().then(() => {
   // autoUpdater.checkForUpdates()
-
+  // Menu.setApplicationMenu(Menu.buildFromTemplate([]));
   require('@electron/remote/main').initialize()
   createWindow();
 

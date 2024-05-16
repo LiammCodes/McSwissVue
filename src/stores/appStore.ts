@@ -1,17 +1,18 @@
 import { defineStore } from 'pinia';
 import { View } from '../types/Types';
 import SecureLS from 'secure-ls';
+import { getTitlebarColor } from '../utils/HelperFunctions';
+
 const ls = new SecureLS;
 
 function loadStoredTheme(): string {
   const storedTheme = localStorage.getItem('theme');
-  return storedTheme ? storedTheme : 'dark';
+  return storedTheme ?? 'dark';
 }
 
 function loadStoredView(): View {
   const storedView = localStorage.getItem('view') as View;
-  
-  return storedView ? storedView : 'Preview Generator';
+  return storedView ?? 'Preview Generator';
 }
 
 function loadStoredEncryptedString(str: string): string {
@@ -23,21 +24,20 @@ function loadStoredEncryptedString(str: string): string {
 export const useAppStore = defineStore({
   id: 'appStore',
   state: () => ({
+    prevOutputPath: loadStoredEncryptedString('prevOutputPath'),
+    segOutputPath: loadStoredEncryptedString('segOutputPath'),
+    segSuffix: loadStoredEncryptedString('segSuffix'),
+    hypThumbOutputPath: loadStoredEncryptedString('hypThumbOutputPath'),
+    transOutputPath: loadStoredEncryptedString('transOutputPath'),
+    transMethod: loadStoredEncryptedString('transMethod'),
+    conOutputPath: loadStoredEncryptedString('conOutputPath'),
 
-    prevOutputPath: loadStoredEncryptedString('prevOutputPath') as string,
-    segOutputPath: loadStoredEncryptedString('segOutputPath') as string,
-    segSuffix: loadStoredEncryptedString('segSuffix') as string,
-    hypThumbOutputPath: loadStoredEncryptedString('hypThumbOutputPath') as string,
-    transOutputPath: loadStoredEncryptedString('transOutputPath') as string,
-    transMethod: loadStoredEncryptedString('transMethod') as string,
-    conOutputPath: loadStoredEncryptedString('conOutputPath') as string,
-
-    s3AccessKey: loadStoredEncryptedString('s3AccessKey') as string,
-    s3BucketName: loadStoredEncryptedString('s3BucketName') as string,
-    s3SecretKey: loadStoredEncryptedString('s3SecretKey') as string,
-    selectedView: loadStoredView() as View,
+    s3AccessKey: loadStoredEncryptedString('s3AccessKey'),
+    s3BucketName: loadStoredEncryptedString('s3BucketName'),
+    s3SecretKey: loadStoredEncryptedString('s3SecretKey'),
+    selectedView: loadStoredView(),
     theme: loadStoredTheme(),
-    trintApiKey: loadStoredEncryptedString('trintKey') as string,
+    trintApiKey: loadStoredEncryptedString('trintKey'),
   }),
   getters: {
     themeType(){
@@ -54,9 +54,16 @@ export const useAppStore = defineStore({
       this.selectedView = newSelectedView;
       localStorage.setItem('view', newSelectedView);
     },
-    setTheme(newTheme: string){
+    setTitleBarStyle(theme: string) {
+      let titlebar = Array.from(document.getElementsByClassName('cet-titlebar') as HTMLCollectionOf<HTMLElement>)[0];      
+      titlebar.style.backgroundColor = getTitlebarColor(theme);
+    },
+    setTheme(newTheme: string) {
+      // change theme
       this.theme = newTheme;
       localStorage.setItem('theme', this.theme);
+      // change titlebar color
+      this.setTitleBarStyle(newTheme)
     },
     setS3Data(s3BucketName: string, s3AccessKey: string, s3SecretKey: string) {
       // encrypt keys and save locally
