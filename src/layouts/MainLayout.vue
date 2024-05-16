@@ -19,6 +19,7 @@ import { useAppStore } from '../stores/appStore';
 import { Toast } from '../types/Types';
 import McToast from '../components/McToast.vue';
 import McDrawer from '../components/McDrawer.vue';
+
 export default defineComponent({
   name: 'MainLayout',
   components: {

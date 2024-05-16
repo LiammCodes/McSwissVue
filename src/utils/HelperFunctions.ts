@@ -79,3 +79,28 @@ export function metaDataMissing(selectedFile: FileData): boolean {
     return false;
   }
 }
+
+export function getTitlebarColor(theme: string) {
+  switch (theme) {
+      case 'dark':
+        return 'rgb(25, 28, 32)';
+      case 'light':
+        return 'rgb(31, 36, 47)';
+      case 'aqua':
+        return 'rgb(53, 72, 136)';
+      case 'cupcake':
+        return '#6538b9';
+      case 'dracula':
+        return 'rgb(33, 33, 42)';
+      case 'forest':
+        return 'rgb(19, 17, 17)';
+      case 'night':
+        return 'rgb(17, 20, 32)';
+      case 'synthwave':
+        return 'rgb(16, 11, 41)';
+      case 'winter':
+        return 'rgb(56, 68, 93)';
+      default:
+        return 'rgb(25, 28, 32)';
+  }
+}
