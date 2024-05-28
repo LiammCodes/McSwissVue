@@ -1,4 +1,4 @@
-const { setupTitlebar, attachTitlebarToWindow } = require('custom-electron-titlebar/main');
+// const { setupTitlebar, attachTitlebarToWindow } = require('custom-electron-titlebar/main');
 const { app, BrowserWindow, Notification, Menu, ipcMain, dialog } = require('electron');
 const fs = require('fs');
 const path = require('path')
@@ -31,7 +31,7 @@ function createWindow() {
       contextIsolation: false,
       enableRemoteModule: true,
       webSecurity: false,
-      sandbox: false,
+      // sandbox: false,
       // preload: path.join(__dirname, 'preload.ts')
     },
     show: false

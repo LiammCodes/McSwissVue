@@ -4,7 +4,7 @@
   "description": "A video editing toolbox",
   "private": true,
   "version": "0.2.2",
-  "versionReleased": "2024-04-24",
+  "versionReleased": "2024-05-29",
   "type": "module",
   "main": "./electron.js",
   "scripts": {
@@ -15,7 +15,7 @@
     "electron:build": "npm run build && electron-builder",
     "publish:win": "electron-builder --win --x64 -p always",
     "publish:mac": "electron-builder --mac --arm64 -p always",
-    "publish": "electron-builder -mw -p always"
+    "publish": "electron-builder -p always"
   },
   "repository": {
     "type": "git",
