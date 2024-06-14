@@ -405,7 +405,7 @@ export default defineComponent({
       // Set the region and access keys
       console.log("Bucket: ", data.BucketRegion)
       this.aws.config.update({
-        region: data.BucketRegion ?? 'us-east-1',
+        region: data.BucketRegion,
         accessKeyId: this.appStore.s3AccessKey as string,
         secretAccessKey: this.appStore.s3SecretKey as string,
         apiVersion: 'latest'
@@ -436,8 +436,8 @@ export default defineComponent({
       }
 
       // Create a new instance of the S3 class
-      await this.updateS3Creds();
       const s3 = new this.aws.S3();
+      await this.updateS3Creds();
      
       // Set the parameters for file to upload
       const params = {

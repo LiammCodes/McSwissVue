@@ -3,7 +3,7 @@
   "author": "Liam Codes",
   "description": "A video editing toolbox",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "versionReleased": "2024-05-29",
   "type": "module",
   "main": "./electron.js",
