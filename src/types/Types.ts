@@ -10,7 +10,9 @@ export type FileData = {
   bitrate: string,
   duration: string,
   file: null | File,
-  thumbnailPath: string
+  thumbnailPath: string,
+  width: number,
+  height: number,
 }
 
 export type SelectOption = {

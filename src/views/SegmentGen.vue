@@ -115,7 +115,7 @@ export default defineComponent({
     const appStore = useAppStore();
     const os = require('os');
     const ffmpeg = require('ffmpeg-static');
-    const ffprobe = require('ffprobe-static');
+    const ffprobe = require('@ffprobe-installer/ffprobe');
     const spawn = require('child_process').spawn;
     const ipcRenderer = require('electron').ipcRenderer;
     const dialog = require('electron').dialog;
@@ -148,7 +148,9 @@ export default defineComponent({
         bitrate: '' as string,
         duration: '' as string,
         file: null as null | File,
-        thumbnailPath: '' as string
+        thumbnailPath: '' as string,
+        width: 0 as number,
+        height: 0 as number,
       } as FileData,
       segments: [] as Segment[],
       selectedSuffix: {

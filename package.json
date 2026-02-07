@@ -37,7 +37,7 @@
     "electron-root-path": "^1.1.0",
     "electron-updater": "^6.1.8",
     "ffmpeg-static": "^5.1.0",
-    "ffprobe-static": "^3.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
     "pinia": "^2.0.34",
     "request": "^2.88.2",
     "rollup-plugin-node-builtins": "^2.1.2",

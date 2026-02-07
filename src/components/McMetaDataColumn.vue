@@ -12,6 +12,7 @@
         <p>Duration: <span class="float-right">{{ fileDuration }}</span></p>
         <p>Size: <span class="float-right">{{ fileSize }}</span></p>
         <p>Bitrate: <span class="float-right">{{ fileBitrate }}</span></p>
+        <p v-if="fileResolution">Resolution: <span class="float-right">{{ fileResolution }}</span></p>
       </div>
     </div>
   </div>
@@ -50,6 +51,12 @@ export default defineComponent({
       } else {
         return 'Error :('
       }
+    },
+    fileResolution(): string {
+      if (this.selectedFile && this.selectedFile.width > 0 && this.selectedFile.height > 0) {
+        return `${this.selectedFile.width} × ${this.selectedFile.height}`
+      }
+      return ''
     }
   },
   methods: {

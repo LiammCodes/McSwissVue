@@ -134,7 +134,9 @@ export default defineComponent({
         bitrate: '' as string,
         duration: '' as string,
         file: null as null | File,
-        thumbnailPath: '' as string
+        thumbnailPath: '' as string,
+        width: 0 as number,
+        height: 0 as number,
       } as FileData,
       shortestDuration: null as null | number,
       showBinaryModal: false as boolean,

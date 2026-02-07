@@ -117,7 +117,7 @@ export default defineComponent({
     const ipcRenderer = require('electron').ipcRenderer;
     const path = require('path');
     const ffmpeg = require('ffmpeg-static');
-    const ffprobe = require('ffprobe-static').path;
+    const ffprobe = require('@ffprobe-installer/ffprobe').path;
     const spawn = require('child_process').spawn;
     const fs = require('fs');
 
@@ -233,6 +233,8 @@ export default defineComponent({
             file: file,
             thumbnailPath: thumbnailPath,
             size: metadata.size,
+            width: metadata.width,
+            height: metadata.height,
           }
           return fileObj;
         });
@@ -267,51 +269,69 @@ export default defineComponent({
     },
 
     async getMetaData(file: any) {
-      return new Promise<{ bitrate: string; duration: string, size: string }>((resolve, reject) => {
+      return new Promise<{ bitrate: string; duration: string; size: string; width: number; height: number }>((resolve, reject) => {
         const result = {
           bitrate: '' as string,
           duration: '' as string,
           size: '' as string,
+          width: 0 as number,
+          height: 0 as number,
         };
+        const stdoutChunks: Buffer[] = [];
         // @ts-ignore
         const childProcess = this.spawn(this.ffprobe.replace('app.asar', 'app.asar.unpacked'), [
-          '-i', 
-          file.path + '', 
-          '-loglevel', 
-          'level',
-          '-show_entries',
-          'format=size', // Request to show the file size.
-          '-of',
-          'default=noprint_wrappers=1:nokey=1', // Output format.
+          '-v', 'error',
+          '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,width,height',
+          '-of', 'json',
+          '-i', file.path + '',
         ]);
-        childProcess.stdout.on('data', (data: any) => {
-          // console.log(`FFProbe stdout: ${data}`);
-          result.size = data;
+        childProcess.stdout.on('data', (data: Buffer) => {
+          stdoutChunks.push(data);
         });
 
-        childProcess.stderr.on('data', (data: any) => {
-          // console.log(`FFProbe sterr: ${data}`);
-          const stderrData = data.toString();
-          const durationRegex = /Duration: (\d+:\d+:\d+)/;
-          const bitrateRegex = /bitrate: (\d+) kb\/s/;
-
-          const durationMatch = stderrData.match(durationRegex);
-          if (durationMatch && durationMatch[1]) {
-            result.duration = durationMatch[1];
+        childProcess.on('close', (code: number) => {
+          try {
+            if (code !== 0) {
+              console.warn('[getMetaData] ffprobe exited with code', code, 'for', file.path);
+            }
+            const raw = Buffer.concat(stdoutChunks).toString('utf8').trim();
+            const json = raw ? JSON.parse(raw) : {};
+            const format = json.format || {};
+            const streams = json.streams || [];
+            const durationSec = parseFloat(format.duration);
+            if (!isNaN(durationSec) && durationSec >= 0) {
+              const h = Math.floor(durationSec / 3600);
+              const m = Math.floor((durationSec % 3600) / 60);
+              const s = Math.floor(durationSec % 60);
+              result.duration = [h, m, s].map((x) => String(x).padStart(2, '0')).join(':');
+            }
+            // Use format (overall) bitrate for display (matches File Properties / overall bitrate)
+            const bitRateSrc = format.bit_rate;
+            const bps = parseInt(bitRateSrc, 10);
+            if (!isNaN(bps) && bps > 0) {
+              result.bitrate = bps >= 1_000_000
+                ? (bps / 1_000_000).toFixed(1) + ' Mbit/s'
+                : (bps / 1000).toFixed(2).replace(/\.?0+$/, '') + ' kbit/s';
+            }
+            const size = format.size;
+            result.size = size != null && size !== 'N/A' ? String(size) : '';
+            const videoStreamForSize = streams.find((s: { codec_type?: string }) => s.codec_type === 'video');
+            if (videoStreamForSize) {
+              const w = parseInt(videoStreamForSize.width, 10);
+              const h = parseInt(videoStreamForSize.height, 10);
+              if (!isNaN(w) && !isNaN(h)) {
+                result.width = w;
+                result.height = h;
+              }
+            }
+          } catch (_e) {
+            // Ignore parse/format errors; result keeps initial empty strings
           }
-
-          const bitrateMatch = stderrData.match(bitrateRegex);
-          if (bitrateMatch && bitrateMatch[1]) {
-            result.bitrate = bitrateMatch[1] + ' kb/s';
-          }
+          resolve(result);
         });
 
-        childProcess.on('close', (code: any) => {
-          resolve(result); // Resolve the promise when the child process is closed.
-        });
-
-        childProcess.on('error', (error: any) => {
-          reject(error); // Reject the promise if an error occurs.
+        childProcess.on('error', (error: Error) => {
+          reject(error);
         });
       });
     },
