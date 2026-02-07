@@ -1,16 +1,16 @@
 <template>
   <!-- for custom title bar -> :class="isMac ? 'macHeight' : 'winHeight'"-->
-  <div id="themed-app" class="h-screen" :data-theme="appStore.theme">
+  <div id="themed-app" class="h-screen flex flex-col" :data-theme="appStore.theme">
     <mc-toast 
       :showToast="showToast" 
       @close="showToast = false"
       :toast="toast"
     />
-    <mc-drawer class="overflow-hidden">
+    <mc-navbar class="flex flex-col h-full overflow-hidden">
       <template v-slot:tool-view>
-        <router-view @toggle-toast="toggleToast" class="overflow-hidden"/>
+        <router-view @toggle-toast="toggleToast" class="flex-1 min-h-0 flex flex-col overflow-hidden"/>
       </template>
-    </mc-drawer>
+    </mc-navbar>
   </div>
 </template>
 
@@ -19,12 +19,12 @@ import { defineComponent } from 'vue';
 import { useAppStore } from '../stores/appStore';
 import { Toast } from '../types/Types';
 import McToast from '../components/McToast.vue';
-import McDrawer from '../components/McDrawer.vue';
+import McNavbar from '../components/McNavbar.vue';
 
 export default defineComponent({
   name: 'MainLayout',
   components: {
-    McDrawer,
+    McNavbar,
     McToast
   },
   setup() {

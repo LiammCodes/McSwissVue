@@ -1,50 +1,43 @@
 <template>
-  <mc-file-upload 
-    v-if="showFileUpload" 
-    action="create segments for" 
-    :multiple-files="false" 
-    @files-uploaded="handleFilesUploaded" 
-    @bad-extension="handleBadExtension"
-  />
-  
-  <div v-else class="m-2 h-full" style="overflow-x: hidden;">
-    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-    <div class="grid grid-cols-8 gap-2 h-full" style="overflow-x: hidden;">
-      <!-- file grid col -->
-      <mc-file-grid 
-        class="col-span-4" 
-        :files="files" 
-        :processing="generating"
-        @file-selected="handleFileSelected" 
-        @files-loaded="handleFilesLoaded"
-      >
-        <template v-slot:spacing>
-          <div class="h-full"></div>
-        </template>
-      </mc-file-grid>
-      <!-- segment list col -->
-      <div class="col-span-2 flex flex-wrap gap-2 justify-start items-start rounded-md h-full" style="overflow-x: hidden;">
-        <div class="w-full space-y-2">
-          <!-- scrollable list of secments-->
-          <div class="max-h-screen space-y-2">
-            <mc-segment 
-              v-for="segment in segments"
-              :key="segment.id"
-              :modelValue="segment"
-              @delete-segment="deleteSegment(segment.id)"
-            />
-            <button class="btn btn-outline btn-primary w-full" @click="addSegment">
-              <plus-circle-icon color="primary" class="h-6 w-6"/>
-            </button>
+  <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <mc-file-upload 
+      v-if="showFileUpload" 
+      action="create segments for" 
+      :multiple-files="false" 
+      @files-uploaded="handleFilesUploaded" 
+      @bad-extension="handleBadExtension"
+    />
+    <template v-else>
+      <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
+        <div class="flex-1 min-h-0 grid grid-cols-8 gap-2 overflow-hidden" style="overflow-x: hidden;">
+          <mc-file-grid 
+            class="col-span-4 h-full" 
+            :files="files" 
+            :processing="generating"
+            @file-selected="handleFileSelected" 
+            @files-loaded="handleFilesLoaded"
+          >
+            <template v-slot:spacing>
+              <div class="h-full"></div>
+            </template>
+          </mc-file-grid>
+          <div class="col-span-2 flex flex-col min-h-0 overflow-hidden rounded-md">
+            <div class="flex-1 min-h-0 overflow-y-auto space-y-2">
+              <mc-segment 
+                v-for="segment in segments"
+                :key="segment.id"
+                :modelValue="segment"
+                @delete-segment="deleteSegment(segment.id)"
+              />
+              <button class="btn btn-outline btn-primary w-full" @click="addSegment">
+                <plus-circle-icon color="primary" class="h-6 w-6"/>
+              </button>
+            </div>
           </div>
+          <mc-meta-data-column class="col-span-2 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
         </div>
-      </div>
-      <!-- metadata col -->
-      <mc-meta-data-column class="col-span-2 gap-2 bg-base-200 rounded-xl" :files-loading="filesLoading" :selected-file="selectedFile" />
-    </div>
-  </div>
-
-  <mc-data-intake v-if="!showFileUpload">
+        <mc-data-intake class="shrink-0">
     <template v-slot:data-intake>
       <div v-if="!generating" class="flex justify-between items-center gap-10">
         <div class="space-y-2 flex-grow max-w-xl">
@@ -84,7 +77,10 @@
         </div>
       </div>
     </template>
-  </mc-data-intake>
+        </mc-data-intake>
+      </div>
+    </template>
+  </div>
 </template>
 
 <script lang="ts">

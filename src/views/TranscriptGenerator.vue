@@ -1,30 +1,28 @@
 <template>
-  <mc-file-upload 
-    v-if="showFileUpload" 
-    action="transcribe" 
-    @files-uploaded="handleFilesUploaded" 
-    @bad-extension="handleBadExtension"
-  />
-  <div v-else class="m-2 h-full" style="overflow-x: hidden;">
-    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-    <div class="grid grid-cols-4 gap-2 h-full">
-      <!-- file grid col -->
-      <mc-file-grid 
-        class="col-span-3 h-full" 
-        :files="files" 
-        :file-statuses="statuses" 
-        :list="true" 
-        :method="selectedMethod" 
-        :processing="transcribing"
-        @file-selected="handleFileSelected" 
-        @files-loaded="handleFilesLoaded"
-      />
-      <!-- metadata col -->
-      <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl" :files-loading="filesLoading" :selected-file="selectedFile" />
-    </div>
-  </div>
-
-  <mc-data-intake v-if="!showFileUpload">
+  <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
+    <mc-file-upload 
+      v-if="showFileUpload" 
+      action="transcribe" 
+      @files-uploaded="handleFilesUploaded" 
+      @bad-extension="handleBadExtension"
+    />
+    <template v-else>
+      <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
+        <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
+          <mc-file-grid 
+            class="col-span-3 h-full" 
+            :files="files" 
+            :file-statuses="statuses" 
+            :list="true" 
+            :method="selectedMethod" 
+            :processing="transcribing"
+            @file-selected="handleFileSelected" 
+            @files-loaded="handleFilesLoaded"
+          />
+          <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
+        </div>
+        <mc-data-intake class="shrink-0">
     <template v-slot:data-intake>
       <div v-if="!transcribing" class="flex justify-between items-center gap-10">
         <div class="flex justify-end items-center space-x-2">
@@ -66,7 +64,10 @@
         </div>
       </div>
     </template>
-  </mc-data-intake>
+        </mc-data-intake>
+      </div>
+    </template>
+  </div>
 </template>
 
 <script lang="ts">

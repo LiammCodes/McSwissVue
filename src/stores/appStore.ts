@@ -55,8 +55,10 @@ export const useAppStore = defineStore({
       localStorage.setItem('view', newSelectedView);
     },
     setTitleBarStyle(theme: string) {
-      let titlebar = Array.from(document.getElementsByClassName('cet-titlebar') as HTMLCollectionOf<HTMLElement>)[0];      
-      titlebar.style.backgroundColor = getTitlebarColor(theme);
+      const titlebar = document.querySelector<HTMLElement>('.cet-titlebar');
+      if (titlebar) {
+        titlebar.style.backgroundColor = getTitlebarColor(theme);
+      }
     },
     setTheme(newTheme: string) {
       // change theme

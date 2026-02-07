@@ -4,7 +4,7 @@
   @dragover.prevent="handleDragOver"
   @drop.prevent="handleDrop"  
  >
-  <label class="flex justify-center items-center w-3/4 h-1/2 px-4 transition bg-base-100 border-2 border-text border-dashed rounded-md appearance-none cursor-pointer hover:border-primary focus:outline-none">
+  <label class="flex justify-center items-center w-3/4 h-1/2 px-4 transition bg-base-100 border-2 border-text border-dashed rounded-box appearance-none cursor-pointer hover:border-primary focus:outline-none">
     <span class="flex items-center space-x-2">
       <svg 
         xmlns="http://www.w3.org/2000/svg" 

@@ -1,5 +1,5 @@
 <template>
-  <div class="m-2 h-full">
+  <div class="h-full">
     <div class="grid grid-cols-5 gap-2 mt-3">
       <!-- About card -->
       <div class="col-span-2 row-span-2 bg-base-200 rounded-xl p-4 flex justify-center">
