@@ -175,20 +175,14 @@ export default defineComponent({
       toastMessage: '' as string,
     }
   },
-  watch: {
-    currentProgress(newVal: number, oldVal: number) {
-      if (newVal < oldVal) {
-        this.totalProgress += 100;
-      }
-    }
-  },
   mounted() {
     this.setOutputPathFromStorage();
     this.setSuffixFromStorage();
   },
   computed: {
     progressStr() {
-      return (this.currentProgress + this.totalProgress) / this.segments.length;
+      const count = this.segments.length;
+      return count > 0 ? (this.currentProgress + this.totalProgress) / count : 0;
     }
   },
   methods: {
@@ -351,6 +345,7 @@ export default defineComponent({
         // Function to process the next segment recursively
         const processNextSegment = async () => {
           if (currentSegmentIndex < this.segments.length) {
+            this.currentProgress = 0;
             const segment = this.segments[currentSegmentIndex];
             const segmentSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(currentSegmentIndex + 97) : currentSegmentIndex + 1; 
             const ffmpegCommand = [
@@ -379,11 +374,14 @@ export default defineComponent({
                 } 
               });
               childProcess.on('close', (code: any) => {
+                this.totalProgress += 100;
                 currentSegmentIndex++;
                 processNextSegment(); // Process the next segment recursively
               });
               childProcess.on('error', (err: any) => {
-                // pass
+                this.totalProgress += 100;
+                currentSegmentIndex++;
+                processNextSegment(); // Process the next segment recursively
               });
             } else {
               console.error('Failed to spawn FFMpeg process.');

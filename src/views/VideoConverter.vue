@@ -117,10 +117,10 @@
       <div class="py-3" v-else>
         <div class="mb-2 text-base font-medium flex justify-between">
           <span>Converting...</span>
-          <span>{{ Math.floor(progress) }}%</span>
+          <span>{{ Math.floor(progressForDisplay) }}%</span>
         </div>
         <div class="w-full bg-base-100 rounded-full h-2.5">
-          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
+          <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progressForDisplay + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
     </template>
@@ -192,6 +192,8 @@ export default defineComponent({
       outputFileExtension: '.mp4' as string,
       overwriteResponse: null as null | boolean,
       progress: 0 as number,
+      /** Display-only progress: never decreases during a run, prevents bar from bouncing to 0. */
+      progressDisplay: 0 as number,
       selectedFile: {
         bitrate: '' as string,
         duration: '' as string,
@@ -228,6 +230,10 @@ export default defineComponent({
     this.setOutputPathFromStorage();
   },
   computed: {
+    /** Progress value for the bar and label; never decreases during a run. */
+    progressForDisplay(): number {
+      return this.progressDisplay;
+    },
     /** Label for the video bitrate dropdown button (value only; unit is shown outside). */
     effectiveVideoBitrateLabel(): string {
       if (this.videoBitrateIsCustom) {
@@ -390,6 +396,7 @@ export default defineComponent({
     handleConversionComplete() {
       this.converting = false;
       this.progress = 0;
+      this.progressDisplay = 0;
 
       const aborted = this.overwriteResponse === false;
       if (aborted) {
@@ -454,7 +461,12 @@ export default defineComponent({
         const pattern = /time=(\d+:\d+:\d+\.\d+)/;
         childProcess.stderr.on('data', (data: Buffer | string) => {
           const pct = this.parseFFmpegProgress(data.toString(), '00:00:00', fileObj.duration, pattern);
-          this.progress = progressStart + (pct / 100) * (progressEnd - progressStart);
+          const raw = progressStart + (pct / 100) * (progressEnd - progressStart);
+          const value = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : this.progress;
+          this.progress = value;
+          if (value > this.progressDisplay) {
+            this.progressDisplay = value;
+          }
         });
         childProcess.on('close', (code: number | null, signal: string | null) => {
           if (code === 0) resolve();
@@ -494,6 +506,8 @@ export default defineComponent({
       const audioBitrateK = this.audioBitrate + 'k';
       const overwriteFlag = this.overwriteResponse === true ? ['-y'] : [];
       this.converting = true;
+      this.progress = 0;
+      this.progressDisplay = 0;
       this.conversionReport = '';
 
       // Two-pass for accuracy. Constrain with maxrate 1.5× target and bufsize 2× target.
@@ -587,6 +601,7 @@ export default defineComponent({
         console.error('Conversion error:', err);
         this.converting = false;
         this.progress = 0;
+        this.progressDisplay = 0;
         this.toast = { message: 'Conversion failed.', kind: 'alert-error', timeout: 5000 };
         this.$emit('toggle-toast', this.toast);
         return;

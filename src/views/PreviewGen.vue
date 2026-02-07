@@ -133,19 +133,13 @@ export default defineComponent({
       successToastMessage: '' as string,
     }
   },
-  watch: {
-    currentProgress(newVal: number, oldVal: number) {
-      if (newVal < oldVal) {
-        this.totalProgress += 100;
-      }
-    }
-  },
   mounted() {
     this.setOutputPathFromStorage();
   },
   computed: {
     progressStr() {
-      return (this.currentProgress + this.totalProgress) / this.files.length;
+      const count = this.files.length;
+      return count > 0 ? (this.currentProgress + this.totalProgress) / count : 0;
     }
   },
   methods: {
@@ -328,11 +322,12 @@ export default defineComponent({
                 } 
               });
               childProcess.on('close', (code: any) => {
+                this.totalProgress += 100;
                 currentFileIndex++;
                 processNextFile(); // Process the next file recursively
               });
               childProcess.on('error', (err: any) => {
-                // console.log(err)
+                this.totalProgress += 100;
                 currentFileIndex++;
                 processNextFile(); // Process the next file recursively
               });
