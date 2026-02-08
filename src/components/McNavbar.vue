@@ -32,15 +32,9 @@
             <chevron-down-icon class="h-5 w-5" />
           </label>
           <ul tabindex="0" class="menu dropdown-content p-2 shadow bg-primary rounded-box w-52 mt-4 z-50">
-            <li @click="appStore.setTheme('dark')"><a>Dark</a></li>
-            <li @click="appStore.setTheme('light')"><a>Light</a></li>
-            <li @click="appStore.setTheme('aqua')"><a>Aqua</a></li>
-            <li @click="appStore.setTheme('cupcake')"><a>Cupcake</a></li>
-            <li @click="appStore.setTheme('dracula')"><a>Dracula</a></li>
-            <li @click="appStore.setTheme('forest')"><a>Forest</a></li>
-            <li @click="appStore.setTheme('night')"><a>Night</a></li>
-            <li @click="appStore.setTheme('synthwave')"><a>Synthwave</a></li>
-            <li @click="appStore.setTheme('winter')"><a>Winter</a></li>
+            <li v-for="theme in THEMES" :key="theme" @click="appStore.setTheme(theme)">
+              <a>{{ theme.charAt(0).toUpperCase() + theme.slice(1) }}</a>
+            </li>
           </ul>
         </div>
       </div>
@@ -58,6 +52,7 @@ import { useRoute } from 'vue-router';
 import { SwatchIcon, ChevronDownIcon, Cog6ToothIcon } from '@heroicons/vue/20/solid';
 import { useAppStore } from '../stores/appStore';
 import { View } from '../types/Types';
+import { THEMES } from '../constants';
 
 const TOOL_VIEWS: View[] = [
   'Preview Generator',
@@ -85,7 +80,7 @@ export default defineComponent({
       return appStore.selectedView;
     });
 
-    return { appStore, currentViewName, route };
+    return { appStore, currentViewName, route, THEMES };
   },
   data() {
     return {

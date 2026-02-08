@@ -1,9 +1,16 @@
 import { defineStore } from 'pinia';
 import { View } from '../types/Types';
 import SecureLS from 'secure-ls';
-import { getTitlebarColor } from '../utils/HelperFunctions';
+import { getTitlebarColor, isDarkTheme } from '../constants';
 
-const ls = new SecureLS;
+const ls = new SecureLS();
+
+const ENCRYPTED_KEYS = [
+  'prevOutputPath', 'segOutputPath', 'segSuffix', 'hypThumbOutputPath',
+  'transOutputPath', 'transMethod', 'conOutputPath',
+  's3AccessKey', 's3BucketName', 's3SecretKey', 'trintKey',
+] as const;
+type EncryptedKey = (typeof ENCRYPTED_KEYS)[number];
 
 function loadStoredTheme(): string {
   const storedTheme = localStorage.getItem('theme');
@@ -15,9 +22,13 @@ function loadStoredView(): View {
   return storedView ?? 'Preview Generator';
 }
 
-function loadStoredEncryptedString(str: string): string {
-  const ls = new SecureLS;
-  return ls.get(str).data as string;
+function loadStoredEncryptedString(key: string): string {
+  try {
+    const data = ls.get(key);
+    return (data && typeof data === 'object' && 'data' in data) ? (data as { data: string }).data : '';
+  } catch {
+    return '';
+  }
 }
 
 
@@ -40,13 +51,8 @@ export const useAppStore = defineStore({
     trintApiKey: loadStoredEncryptedString('trintKey'),
   }),
   getters: {
-    themeType(){
-      if (this.theme === 'dark' || this.theme === 'dracula' || this.theme === 'aqua' || this.theme === 'forest' || this.theme === 'synthwave' 
-          || this.theme === 'black' || this.theme === 'night'){
-        return 'dark';
-      } else {
-        return 'light';
-      }
+    themeType(): 'dark' | 'light' {
+      return isDarkTheme(this.theme) ? 'dark' : 'light';
     },
   },
   actions: {
@@ -67,49 +73,38 @@ export const useAppStore = defineStore({
       // change titlebar color
       this.setTitleBarStyle(newTheme)
     },
+    setEncrypted(key: EncryptedKey, value: string) {
+      (this as Record<string, string>)[key === 'trintKey' ? 'trintApiKey' : key] = value;
+      ls.set(key, { data: value });
+    },
     setS3Data(s3BucketName: string, s3AccessKey: string, s3SecretKey: string) {
-      // encrypt keys and save locally
-      this.s3BucketName = s3BucketName;
-      ls.set('s3BucketName', {data: s3BucketName});
-
-      this.s3AccessKey = s3AccessKey;
-      ls.set('s3AccessKey', {data: s3AccessKey});
-
-      this.s3SecretKey = s3SecretKey;
-      ls.set('s3SecretKey', {data: s3SecretKey});
+      this.setEncrypted('s3BucketName', s3BucketName);
+      this.setEncrypted('s3AccessKey', s3AccessKey);
+      this.setEncrypted('s3SecretKey', s3SecretKey);
     },
     setTrintKey(trintKey: string) {
-      // encrypt key and save locally
-      this.trintApiKey = trintKey;
-      ls.set('trintKey', {data: trintKey});
+      this.setEncrypted('trintKey', trintKey);
     },
     setPrevOutputPath(path: string) {
-      this.prevOutputPath = path;
-      ls.set('prevOutputPath', {data: path});
+      this.setEncrypted('prevOutputPath', path);
     },
     setSegOutputPath(path: string) {
-      this.segOutputPath = path;
-      ls.set('segOutputPath', {data: path});
+      this.setEncrypted('segOutputPath', path);
     },
     setSegSuffix(suffix: string) {
-      this.segSuffix = suffix;
-      ls.set('segSuffix', {data: suffix});
+      this.setEncrypted('segSuffix', suffix);
     },
     setHypThumbOutputPath(path: string) {
-      this.hypThumbOutputPath = path;
-      ls.set('hypThumbOutputPath', {data: path});
+      this.setEncrypted('hypThumbOutputPath', path);
     },
     setTransOutputPath(path: string) {
-      this.transOutputPath = path;
-      ls.set('transOutputPath', {data: path});
+      this.setEncrypted('transOutputPath', path);
     },
     setTransMethod(method: string) {
-      this.transMethod = method;
-      ls.set('transMethod', {data: method});
+      this.setEncrypted('transMethod', method);
     },
     setConOutputPath(path: string) {
-      this.conOutputPath = path;
-      ls.set('conOutputPath', {data: path});
-    }
+      this.setEncrypted('conOutputPath', path);
+    },
   },
 });

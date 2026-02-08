@@ -29,8 +29,7 @@ export default defineComponent({
   },
   setup() {
     const appStore = useAppStore();
-    const os = require('os');
-    return { appStore, os };
+    return { appStore };
   },
   data() {
     return {
@@ -45,8 +44,7 @@ export default defineComponent({
   //   }
   // },
   mounted() {
-    this.$router.push({name: this.appStore.selectedView})
-    console.log(this.appStore.theme);
+    this.$router.push({ name: this.appStore.selectedView });
   },
   methods: {
     toggleToast(newToast: Toast): void {

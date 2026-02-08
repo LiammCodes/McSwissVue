@@ -2,8 +2,8 @@ import path from 'path';
 import fs from 'fs';
 import { FileData } from '../types/Types';
 
-// breaks down time stamp into total number of seconds
-export function getSeconds(time: string | null){
+/** Converts a timestamp (HH:MM:SS or H:MM:SS.ff) to total seconds. */
+export function getSeconds(time: string | null | undefined): number {
   if (time) {
     // Split the input string into hours, minutes, and seconds
     let [hours, minutes, seconds] = time.split(":").map(Number);
@@ -15,92 +15,45 @@ export function getSeconds(time: string | null){
 }
 
 export function parseFfmpegConvertProgress(data: string, duration: string): number {
-  if (data) {
-    const pattern = /time=(\d{2}):(\d{2}):(\d{2}).(\d{2})/;
-    console.log(typeof pattern)
-    const match = RegExp(pattern).exec(data);
-    if (match) {
-      console.log(match[1] + " / " + getSeconds(duration))
-      return (getSeconds(match[1]) / getSeconds(duration)) * 100;
-    } else {
-      return 0;
-    }
-  } else {
-    return 0
-  }
-  
+  if (!data) return 0;
+  const pattern = /time=(\d{2}):(\d{2}):(\d{2}).(\d{2})/;
+  const match = pattern.exec(data);
+  return match ? (getSeconds(match[1]) / getSeconds(duration)) * 100 : 0;
 }
 
-// returns progress percent
+/** Returns progress percent (0–100). */
 export function parseFFmpegProgress(data: string, startTime: string, endTime: string, pattern: RegExp): number {
-  console.log((getSeconds(parseOutTime(data, pattern))) + " / " + (getSeconds(endTime) - getSeconds(startTime)))
-  return (getSeconds(parseOutTime(data, pattern)) / (getSeconds(endTime) - getSeconds(startTime))) * 100;
+  const outTime = parseOutTime(data, pattern);
+  const duration = getSeconds(endTime) - getSeconds(startTime);
+  return duration > 0 && outTime ? (getSeconds(outTime) / duration) * 100 : 0;
 }
 
 export function parseOutTime(output: string, pattern: RegExp): string | null {
-  if (output) {
-    const match = RegExp(pattern).exec(output);
-    return match ? match[1] : null;  
-  } else {
-    return null
-  }
+  if (!output) return null;
+  const match = pattern.exec(output);
+  return match ? match[1] : null;
 }
 
-export function removeExtension(filename: string) {
-  // Split the filename into base name and extension
+export function removeExtension(filename: string): string {
   const dotIndex = filename.lastIndexOf('.');
-  const baseName = filename.slice(0, dotIndex);
-
-  return baseName;
+  return dotIndex === -1 ? filename : filename.slice(0, dotIndex);
 }
 
-export function fileAlreadyExists(filepath: string) {
-  if (fs.existsSync(filepath)) {
-    return true;
-  } else {
-    return false;
-  }
+export function fileAlreadyExists(filepath: string): boolean {
+  return fs.existsSync(filepath);
 }
 
-export function getShortestVideoDuration(fileObjects: object[]) {
-  let shortestDuration = null as null | number;
-  fileObjects.forEach((fileObj: any) => {
-    if (shortestDuration === null || getSeconds(fileObj.duration) < shortestDuration) {
-      shortestDuration = getSeconds(fileObj.duration);
-    } 
-  })
-  return shortestDuration;
+export interface WithDuration {
+  duration: string;
+}
+
+export function getShortestVideoDuration(fileObjects: WithDuration[]): number | null {
+  if (fileObjects.length === 0) return null;
+  return Math.min(...fileObjects.map((obj) => getSeconds(obj.duration)));
 }
 
 export function metaDataMissing(selectedFile: FileData): boolean {
-  if (selectedFile.bitrate == '' || selectedFile.duration == '' || selectedFile.thumbnailPath == '') {
-    return true;
-  } else {
-    return false;
-  }
+  return !selectedFile.bitrate || !selectedFile.duration || !selectedFile.thumbnailPath;
 }
 
-export function getTitlebarColor(theme: string) {
-  switch (theme) {
-      case 'dark':
-        return 'rgb(25, 28, 32)';
-      case 'light':
-        return 'rgb(31, 36, 47)';
-      case 'aqua':
-        return 'rgb(53, 72, 136)';
-      case 'cupcake':
-        return '#6538b9';
-      case 'dracula':
-        return 'rgb(33, 33, 42)';
-      case 'forest':
-        return 'rgb(19, 17, 17)';
-      case 'night':
-        return 'rgb(17, 20, 32)';
-      case 'synthwave':
-        return 'rgb(16, 11, 41)';
-      case 'winter':
-        return 'rgb(56, 68, 93)';
-      default:
-        return 'rgb(25, 28, 32)';
-  }
-}
+export { getTitlebarColor } from '../constants';

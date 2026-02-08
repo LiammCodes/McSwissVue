@@ -225,9 +225,8 @@ export default defineComponent({
       this.selectedSuffix = suffix;
       this.appStore.setSegSuffix(suffix.value);
       this.segments.forEach((segment: Segment) => {
-        const fileSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(segment.id+97) : segment.id + 1;
-        console.log(segment.name)
-        segment.name = this.removeExtension(this.files[0].name) + "_" + fileSuffix + this.outputFileExtension
+        const fileSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(segment.id + 97) : segment.id + 1;
+        segment.name = this.removeExtension(this.files[0].name) + "_" + fileSuffix + this.outputFileExtension;
       });
     },
 
@@ -285,7 +284,6 @@ export default defineComponent({
       const index = this.segments.findIndex(segment => segment.id === id);
       if (index !== -1) {
         this.segments.splice(index, 1);
-        console.log("Segment deleted:", id);
       }
     },
 

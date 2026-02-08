@@ -31,9 +31,6 @@ export default defineComponent({
       }
     }
   },
-  mounted() {
-    
-  },
   methods: {
     handleModalClose(answer: string): void {
       if (answer === 'yes') {
