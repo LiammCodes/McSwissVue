@@ -44,7 +44,7 @@
             </div>
           </div> 
         </div>
-        <div v-if="selectedMethod.value === 'download'" class="space-y-2 flex-grow max-w-md">
+        <div v-if="selectedMethod.value === 'local'" class="space-y-2 flex-grow max-w-md">
           <div class="flex justify-end items-center space-x-2">
             <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
             <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
@@ -74,37 +74,27 @@
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
 import { FileData, SelectOption, Status, Toast } from '../types/Types';
-import { 
-  fileAlreadyExists,
-  removeExtension
-} from '../utils/HelperFunctions';
+import { fileAlreadyExists, removeExtension } from '../utils/HelperFunctions';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
 import McDataIntake from '../components/McDataIntake.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
-import McTimeInput from '../components/McTimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
-import * as https from 'https';
-import * as stream from 'stream';
 
 export default defineComponent({
   name: 'TranscriptGenerator',
-  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McTimeInput },
+  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn },
   emits: ['toggle-toast'],
   setup() {
     const appStore = useAppStore();
     const aws = require('aws-sdk');
-    const s3 = new aws.S3();
     const ipcRenderer = require('electron').ipcRenderer;
     const fs = require('fs');
     const path = require('path');
-    const request = require('request');
-    const spawn = require('child_process').spawn;
-    
 
-    return { appStore, aws, fs, ipcRenderer, path, request, s3, spawn }
+    return { appStore, aws, fs, ipcRenderer, path };
   },
-  data(){
+  data() {
     return {
       binaryModalResolver: null as (() => void) | null,
       bitrate: '3000' as string,
@@ -114,20 +104,14 @@ export default defineComponent({
       filesLoading: true as boolean,
       transcribing: false as boolean,
       methodOptions: [
-        {
-          label: "Transcribe and Download",
-          value: "download"
-        },
-        {
-          label: "Transcribe and Upload to S3",
-          value: "upload"
-        }
+        { label: 'Transcribe locally', value: 'local' },
+        { label: 'Transcribe and Upload to S3', value: 'upload' },
       ] as SelectOption[],
       outputFileExtension: '.vtt' as string,
       outputFilePath: 'None' as string,
       selectedMethod: {
-        label: "Transcribe and Download",
-        value: "download"
+        label: 'Transcribe locally',
+        value: 'local',
       } as SelectOption,
       overwriteResponse: null as null | boolean,
       s3Region: '' as string,
@@ -146,16 +130,8 @@ export default defineComponent({
       statuses: [] as Status[],
       toast: {} as Toast,
       toastMessage: '' as string,
-      trintTestPass: true as boolean,
       successToastMessage: '' as string,
-    }
-  },
-  watch: {
-    progress(progress) {
-      if (progress >= 100) {
-        this.handleTranscriptionComplete();
-      }
-    }
+    };
   },
   mounted() {
     this.setOutputPathFromStorage();
@@ -163,14 +139,11 @@ export default defineComponent({
   },
   computed: {
     progress(): number {
-      let result = 0;
-      let denominator = this.selectedMethod.value === "upload" ? 5 : 4;
-      this.statuses.forEach((status: Status) => {
-        result = result + status.value;
-      })
-
-      return ((result/this.statuses.length)/denominator) * 100;
-    }
+      const denominator = this.selectedMethod.value === 'upload' ? 5 : 4; // local = 4 steps, upload = 5
+      if (this.statuses.length === 0) return 0;
+      const sum = this.statuses.reduce((acc: number, s: Status) => acc + s.value, 0);
+      return (sum / this.statuses.length / denominator) * 100;
+    },
   },
   methods: {
     setOutputPathFromStorage() {
@@ -180,19 +153,18 @@ export default defineComponent({
     },
     setMethodFromStorage() {
       if (this.appStore.transMethod) {
-        if (this.appStore.transMethod === "download") {
-          this.selectedMethod = this.methodOptions[0];
-        } else {
-          this.selectedMethod = this.methodOptions[1];
-        }
+        this.selectedMethod =
+          (this.appStore.transMethod === 'local' || this.appStore.transMethod === 'download')
+            ? this.methodOptions[0]
+            : this.methodOptions[1];
       }
     },
     handleBadExtension() {
       this.$emit('toggle-toast', {
         message: 'Only .mp4, .mov, and .m4v files are allowed',
         kind: 'alert-error',
-        timeout: 3000
-      })
+        timeout: 3000,
+      });
     },
     handleFilesUploaded(uploadedFiles: File[]) {
       process.nextTick(() => {
@@ -208,94 +180,160 @@ export default defineComponent({
       this.statuses = [];
       this.appStore.setTransMethod(method.value);
 
-      if (method.value === "upload") {
-        await this.checkS3Connection().then((connection: boolean) => {
-          if (!connection) {
-            this.selectedMethod = { label: "Transcribe and Downlad", value: "download" };
-          } else {
-            this.selectedMethod = method;
-          }
-        })
+      if (method.value === 'upload') {
+        const connection = await this.checkS3Connection();
+        if (!connection) {
+          this.selectedMethod = this.methodOptions[0];
+        } else {
+          this.selectedMethod = method;
+        }
       } else {
         this.selectedMethod = method;
       }
-
     },
     handleOverwriteResponse(response: string): void {
       this.showBinaryModal = false;
       this.overwriteResponse = response === 'yes';
-      
-      // Resolve the promise to signal that the modal is closed
       if (this.binaryModalResolver) {
         this.binaryModalResolver();
       }
     },
 
     setSuccessToastMsg(numFiles: number) {
-      if (numFiles === 1) {
-        this.successToastMessage = numFiles + ' File Transcribed Successfully  🎉'
-      } 
-      else {
-        this.successToastMessage = numFiles + ' Files Transcribed Successfully  🎉'
-      }
+      this.successToastMessage =
+        numFiles === 1
+          ? numFiles + ' File Transcribed Successfully  🎉'
+          : numFiles + ' Files Transcribed Successfully  🎉';
     },
 
     resetStatuses() {
-      this.statuses = this.fileObjects.map(_ => ({ 
-        label: "", 
-        color: "primary", 
-        value: 0
+      this.statuses = this.fileObjects.map(() => ({
+        label: '',
+        color: 'primary',
+        value: 0,
       }));
     },
 
     handleFilesLoaded(fileObjects: FileData[]) {
       if (fileObjects) {
-        this.filesLoading = false
+        this.filesLoading = false;
         this.fileObjects = fileObjects;
         this.resetStatuses();
-        this.setSuccessToastMsg(fileObjects.length)
+        this.setSuccessToastMsg(fileObjects.length);
       }
     },
 
     async setOutputPath() {
-      await this.ipcRenderer.invoke('dialog').then((result: string) => {
-        this.outputFilePath = result;
-        this.appStore.setTransOutputPath(result);
-      })
+      const result = await this.ipcRenderer.invoke('dialog');
+      this.outputFilePath = result ?? this.outputFilePath;
+      this.appStore.setTransOutputPath(this.outputFilePath);
     },
 
     errorsFlagged(): boolean {
-      if (!(/^\d+$/.test(this.bitrate))) {
+      if (!/^\d+$/.test(this.bitrate)) {
         this.toastMessage = 'Please enter a valid bitrate';
         return true;
-      } else if ((this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) && this.selectedMethod.value === 'download') {
+      }
+      if (
+        (this.outputFilePath === 'None' || !this.outputFilePath) &&
+        this.selectedMethod.value === 'local'
+      ) {
         this.toastMessage = 'Please enter a valid output path';
         return true;
-      } else {
-        return false;
       }
+      return false;
     },
 
     fileAlreadyExists,
     removeExtension,
 
-    async handleTranscribe() {
-      if (!this.errorsFlagged()) {
-        this.transcribing = true;
-        await this.transcribe();
-      } else {
-        this.toast = {
-          message: this.toastMessage,
-          kind: 'alert-error',
-          timeout: 3000
+    async transcribeOneFile(fileObj: FileData, index: number): Promise<void> {
+      const videoPath = (fileObj.file as File & { path?: string }).path;
+      const filename = fileObj.file!.name;
+      if (!videoPath) {
+        this.statuses[index] = { label: 'Error', color: 'text-error', value: 4 };
+        return;
+      }
+
+      try {
+        this.statuses[index] = { label: 'Transcribing', color: 'text-warning', value: 2 };
+
+        const { vtt: vttContent } = await this.ipcRenderer.invoke('transcribe-video', { videoPath });
+
+        this.statuses[index] = {
+          label: this.selectedMethod.value === 'upload' ? 'Uploading to S3' : 'Writing file',
+          color: 'text-accent',
+          value: 4,
+        };
+
+        if (this.selectedMethod.value === 'upload') {
+          await this.uploadVttToS3(vttContent, index, this.removeExtension(filename) + '.vtt');
+          this.statuses[index] = { label: 'Complete', color: 'text-success', value: 5 };
+        } else {
+          // local: write VTT to disk only, no S3
+          const outPath = this.path.join(
+            this.outputFilePath,
+            this.removeExtension(filename) + '.vtt'
+          );
+          this.fs.writeFileSync(outPath, vttContent, 'utf-8');
+          this.statuses[index] = { label: 'Complete', color: 'text-success', value: 4 };
         }
-        this.$emit('toggle-toast', this.toast)
+      } catch (err: any) {
+        this.statuses[index] = { label: 'Error', color: 'text-error', value: 4 };
+        throw err;
+      }
+    },
+
+    async uploadVttToS3(vttContent: string, index: number, filename: string): Promise<void> {
+      await this.updateS3Creds();
+      const s3 = new this.aws.S3();
+      const params = {
+        Bucket: this.appStore.s3BucketName as string,
+        Key: filename,
+        Body: Buffer.from(vttContent, 'utf-8'),
+        ContentType: 'text/vtt',
+      };
+      await s3.upload(params).promise();
+    },
+
+    async updateS3Creds() {
+      this.aws.config.update({
+        accessKeyId: this.appStore.s3AccessKey as string,
+        secretAccessKey: this.appStore.s3SecretKey as string,
+        apiVersion: 'latest',
+      });
+      const s3 = new this.aws.S3({ region: 'us-east-1' });
+      try {
+        const loc = await s3.getBucketLocation({ Bucket: this.appStore.s3BucketName as string }).promise();
+        const region = loc.LocationConstraint || 'us-east-1';
+        this.aws.config.update({ region });
+      } catch {
+        this.aws.config.update({ region: 'us-east-1' });
+      }
+    },
+
+    async checkS3Connection(): Promise<boolean> {
+      try {
+        this.aws.config.update({
+          accessKeyId: this.appStore.s3AccessKey,
+          secretAccessKey: this.appStore.s3SecretKey,
+        });
+        const s3 = new this.aws.S3();
+        await s3.headBucket({ Bucket: this.appStore.s3BucketName as string }).promise();
+        return true;
+      } catch {
+        this.$emit('toggle-toast', {
+          message: 'Incorrect AWS Settings',
+          kind: 'alert-error',
+          timeout: 3000,
+        });
+        this.transcribing = false;
+        return false;
       }
     },
 
     handleTranscriptionComplete(error: string = '') {
       this.transcribing = false;
-
 
       if (error === '') {
         if (this.overwriteResponse || this.overwriteResponse === null) {
@@ -303,30 +341,29 @@ export default defineComponent({
         } else {
           this.toastMessage = 'Transcription aborted.';
         }
-
         this.toast = {
           message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
           kind: 'alert-success',
           timeout: 5000,
-        }
+        };
         this.$emit('toggle-toast', this.toast);
-        new window.Notification('Transcript Generation Complete', { body: this.successToastMessage });
+        new window.Notification('Transcript Generation Complete', {
+          body: this.successToastMessage,
+        });
       } else {
         this.resetStatuses();
         this.toast = {
-          message: "Error: " + error,
+          message: 'Error: ' + error,
           kind: 'alert-error',
           timeout: 5000,
-        }
+        };
         this.$emit('toggle-toast', this.toast);
       }
-
-      
     },
 
     anyTranscriptionExists(): boolean {
       for (const file of this.fileObjects) {
-        const newFile = removeExtension(file.file!.name) + this.outputFileExtension;
+        const newFile = this.removeExtension(file.file!.name) + this.outputFileExtension;
         const newFilePath = this.path.join(this.outputFilePath, newFile);
         if (fileAlreadyExists(newFilePath)) {
           return true;
@@ -335,304 +372,40 @@ export default defineComponent({
       return false;
     },
 
-    async downloadTranscript(url: string, index: number, filename: string) {
-    
-      const fileDownloadPath = this.path.join(this.outputFilePath, this.removeExtension(filename) + '.vtt');
-      console.log("Downloading transcript to " + fileDownloadPath)
-      return new Promise((resolve, reject) => {
-        const curlProcess = this.spawn('curl', ['-o', fileDownloadPath, url]);
-        curlProcess.on('exit', (code: any) => {
-          if (code === 0) {
-            this.statuses[index] = {
-              label: "Complete",
-              color: "text-success",
-              value: 4
-            };
-            resolve;
-          } else {
-            reject(new Error(`curl process exited with code ${code}`));
-          }
-        });
-        
-        curlProcess.on('error', (err: any) => {
-          reject(err);
-        });
-      })
-    }, 
-
-    checkTrintConnection() {
-      const options = {
-        method: 'GET',
-        headers: {
-          accept: 'application/json',
-          'api-key': this.appStore.trintApiKey
-        }
-      };
-
-      fetch('https://api.trint.com/transcripts/?limit=1&skip=0', options)
-        .then(response => response.json())
-        .then(response => {
-          if (response.error != null) {
-            this.trintTestPass = false;
-          } else {
-            this.trintTestPass = true;
-          }
-        })
-        .catch(err => {
-          this.trintTestPass = false;
-        }).finally(() => {
-          if (!this.trintTestPass) {
-            this.$emit('toggle-toast', {
-              message: 'Incorrect Trint Settings',
-              kind: 'alert-error',
-              timeout: 3000
-            });
-            this.transcribing = false;
-            this.statuses = [];
-          }
-        });
-    },
-
-    async updateS3Creds(){
-      const data = await new Promise<any>((resolve, reject) => {
-        this.s3.headBucket({
-          Bucket: this.appStore.s3BucketName as string,
-        }, (err: Error, data: any) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(data);
-          }
-        });
-      });
-      // Set the region and access keys
-      console.log("Bucket: ", data.BucketRegion)
-      this.aws.config.update({
-        region: data.BucketRegion,
-        accessKeyId: this.appStore.s3AccessKey as string,
-        secretAccessKey: this.appStore.s3SecretKey as string,
-        apiVersion: 'latest'
-      });
-    },
-
-    async checkS3Connection(): Promise<boolean> {
-      try {
-        await this.updateS3Creds();
-        return true; // Connection successful
-      } catch (error) {
-        console.log(error);
-        this.$emit('toggle-toast', {
-          message: 'Incorrect AWS Settings',
+    async handleTranscribe() {
+      if (this.errorsFlagged()) {
+        this.toast = {
+          message: this.toastMessage,
           kind: 'alert-error',
-          timeout: 3000
-        });
-        this.transcribing = false;
-        return false; // Connection failed
-      }
-    },
-
-    async uploadToS3(filePath: string, index: number) {
-      this.statuses[index] = {
-        label: "Uploading to S3 Bucket",
-        color: "info",
-        value: 4
-      }
-
-      // Create a new instance of the S3 class
-      const s3 = new this.aws.S3();
-      await this.updateS3Creds();
-     
-      // Set the parameters for file to upload
-      const params = {
-        Bucket: this.appStore.s3BucketName as string,
-        Key: this.path.basename(filePath), // filename
-        Body: this.fs.readFileSync(filePath),
-        ContentType: "text/vtt" // not sure if this makes it wotk? (probs not)
-      };
-
-      // Upload the file to S3
-      await s3.upload(params, (err: any, data: any) => {
-        if (err) {
-          console.log('Error uploading file:', err);
-        } else {
-          this.statuses[index] = {
-            label: "Complete",
-            color: "text-success",
-            value: 5
-          }
-          console.log('File uploaded successfully. File location:', data.Location);
-          
-        }
-      });
-    },
-
-    createReadStreamFromUrl(url: string): Promise<stream.Readable> {
-      return new Promise((resolve, reject) => {
-        https.get(url, (response) => {
-          if (response.statusCode !== 200) {
-            reject(new Error(`Failed to fetch URL (${url}), status code: ${response.statusCode}`));
-            return;
-          }
-
-          resolve(response);
-        }).on('error', (error) => {
-          reject(error);
-        });
-      });
-    },
-
-    async uploadToS3WithUrl(url: string, index: number, filename: string) {
-      this.statuses[index] = {
-        label: "Uploading to S3 Bucket",
-        color: "text-info",
-        value: 4
-      };
-
-      try {
-        // Create a readable stream from URL
-        const response = await this.createReadStreamFromUrl(url);
-
-        // Create a new instance of the S3 class
-        await this.updateS3Creds();
-        const s3 = new this.aws.S3();
-
-        // Set the parameters for file to upload
-        const params = {
-          Bucket: this.appStore.s3BucketName,
-          Key: filename,
-          Body: response,
-          ContentType: "text/vtt"
+          timeout: 3000,
         };
-
-        // Upload the file to S3
-        const data = await s3.upload(params).promise();
-
-        this.statuses[index] = {
-          label: "Complete",
-          color: "text-success",
-          value: 5
-        };
-
-        console.log('File uploaded successfully. File location:', data.Location);
-      } catch (error: any) {
-        console.log('Error uploading file:', error);
-        this.handleTranscriptionComplete('Error uploading file: ' + error.message);
+        this.$emit('toggle-toast', this.toast);
+        return;
       }
-    },
 
-
-    async startStatusUpdates(trintId: string, index: number, filename: string) {
-      // Periodically check the status of the file
-      let checker = setInterval(async () => {
-        const options = {
-          method: 'GET',
-          headers: {
-            accept: 'application/json',
-            'api-key': this.appStore.trintApiKey as string
-          },
-        };
-        
-        fetch(`https://api.trint.com/export/webvtt/${trintId}?captions-by-paragraph=false&max-subtitle-character-length=37&highlights-only=false&enable-speakers=false&speaker-on-new-line=false&speaker-uppercase=false&skip-strikethroughs=false`, options)
-          .then(response => {
-            // Check if the response status is in the range of 200-299 (success)
-            if (response.ok) {
-              return response.json(); // Parse the response body as JSON
-            } else {
-              // If response status is not in the success range, throw an error
-              throw new Error(`${response.status}`);
-            }
-          })
-          .then(async (response: any) => {
-            console.log(response);
-            this.statuses[index] = {
-              label: "Downloading VTT File",
-              color: "text-accent",
-              value: 3
-            };
-            clearInterval(checker);
-            if (this.selectedMethod.value === "upload") {
-              await this.uploadToS3WithUrl(response.url, index, (this.removeExtension(filename) + '.vtt'))
-            } else {
-              await this.downloadTranscript(response.url, index, filename)
-            }
-          })
-          .catch((err: any) => { // TODO: bad attempt at err handling for this.. 
-            if (err === 'Error: 404') {
-              console.error('404 Not Found error:', err);
-              // Handle 404 error
-            } else {
-              // Handle other errors
-              console.error('Fetch error:', err);
-            }
-            console.log(`PING:${trintId} - Incomplete`)
-          });
-      }, 30000); // Check status every 30 seconds
-    },
-
-    async uploadToTrint(fileObj: any, index: number) {
-      const fileData = this.fs.readFileSync(fileObj.file.path);
-      const options = {
-        method: 'POST',
-        url: `https://upload.trint.com/?filename=${(fileObj.file.name).replace(" ", "%20")}`,
-        encoding: null,
-        body: fileData,
-        headers: {
-          'api-key': this.appStore.trintApiKey,
-          'content-type': 'video/mp4',
-        }
-      };
-
-      this.statuses[index] = {
-        label: "Uploading to Trint", 
-        color: "text-primary", 
-        value: 1 
-      }
-              
-      await new Promise<void>((resolve, reject) => {
-        this.request(options, (error: any, response: any, body: any) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-          const responseBody = response.body.toString();
-          const responseObject = JSON.parse(responseBody);
-          const trintId = responseObject.trintId;
-          console.log(trintId)
-          this.statuses[index] = {
-            label: "Transcribing",
-            color: "text-warning",
-            value: 2
-          };
-          this.startStatusUpdates(trintId, index, fileObj.file.name);
-          resolve(); // Resolve the Promise once the asynchronous operation is done
-        });
-      });
-    },
-
-    async transcribe() {
-      this.checkTrintConnection();
-      // check if any new files already exist
-      if (this.anyTranscriptionExists() && this.selectedMethod.value === "download") {
-        // Toggle the modal
+      if (this.anyTranscriptionExists() && this.selectedMethod.value === 'local') {
         this.showBinaryModal = true;
-
-        // Wait for the modal to close before triggering the action
-        await new Promise((resolve) => {
-          // @ts-ignore
-          this.binaryModalResolver = resolve;
+        await new Promise<void>((resolve) => {
+          (this as any).binaryModalResolver = resolve;
         });
       }
 
-      if (this.overwriteResponse || this.overwriteResponse === null) {
-        for (let i = 0; i < this.fileObjects.length; i++) {
-          console.log("index: " + i)
-          await this.uploadToTrint(this.fileObjects[i], i);
+      if (!(this.overwriteResponse === false)) {
+        this.transcribing = true;
+        try {
+          for (let i = 0; i < this.fileObjects.length; i++) {
+            await this.transcribeOneFile(this.fileObjects[i], i);
+          }
+        } catch (err: any) {
+          this.handleTranscriptionComplete(err?.message ?? String(err));
+          return;
         }
+        this.handleTranscriptionComplete();
       } else {
-        this.handleTranscriptionComplete()
+        this.handleTranscriptionComplete();
       }
-    }
-  }
+    },
+  },
 });
 </script>
 <style scoped>

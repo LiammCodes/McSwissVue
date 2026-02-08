@@ -98,6 +98,84 @@ app.whenReady().then(() => {
     return packagejs.versionReleased;
   })
 
+  // Whisper transcription (runs in main process so Node/onnxruntime-node works)
+  ipcMain.handle('transcribe-video', async (event, { videoPath }) => {
+    const { spawn } = require('child_process');
+    const ffmpegPath = require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
+    const SAMPLE_RATE = 16000;
+    const WHISPER_MODEL = 'Xenova/whisper-tiny.en';
+
+    function formatVttTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      const hrs = String(h).padStart(2, '0');
+      const min = String(m).padStart(2, '0');
+      const sec = String(Math.floor(s)).padStart(2, '0');
+      const ms = String(Math.round((s % 1) * 1000)).padStart(3, '0');
+      return hrs + ':' + min + ':' + sec + '.' + ms;
+    }
+
+    function transcriptionToVtt(output) {
+      const lines = ['WEBVTT', ''];
+      if (output.chunks && output.chunks.length > 0) {
+        output.chunks.forEach((chunk, i) => {
+          const [start, end] = chunk.timestamp;
+          lines.push(String(i + 1));
+          lines.push(formatVttTime(start) + ' --> ' + formatVttTime(end));
+          lines.push(chunk.text.trim());
+          lines.push('');
+        });
+      } else {
+        lines.push('1');
+        lines.push('00:00:00.000 --> 99:59:59.999');
+        lines.push((output.text || '').trim());
+        lines.push('');
+      }
+      return lines.join('\n');
+    }
+
+    function extractAudioToRaw(videoPath, outputPath) {
+      return new Promise((resolve, reject) => {
+        const args = ['-i', videoPath, '-map', '0:a:0', '-vn', '-ar', String(SAMPLE_RATE), '-ac', '1', '-f', 'f32le', '-y', outputPath];
+        const proc = spawn(ffmpegPath, args);
+        let stderr = '';
+        proc.stderr.on('data', (d) => { stderr += d.toString(); });
+        proc.on('close', (code) => {
+          if (code === 0) return resolve();
+          if (/matched no streams|does not contain any stream|Invalid data found/i.test(stderr)) {
+            return reject(new Error('This file has no audio track. Only video files with an audio stream can be transcribed.'));
+          }
+          reject(new Error('ffmpeg exited ' + code + ': ' + stderr.slice(-500)));
+        });
+        proc.on('error', reject);
+      });
+    }
+
+    function loadRawF32(filePath) {
+      const buffer = fs.readFileSync(filePath);
+      return new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
+    }
+
+    const dir = path.dirname(videoPath);
+    const base = path.basename(videoPath, path.extname(videoPath));
+    const rawPath = path.join(dir, base + '_whisper_audio.raw');
+
+    try {
+      await extractAudioToRaw(videoPath, rawPath);
+      const audio = loadRawF32(rawPath);
+      const { pipeline } = await import('@huggingface/transformers');
+      const transcriber = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
+      const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
+      const vtt = transcriptionToVtt(output);
+      return { vtt };
+    } catch (err) {
+      throw err;
+    } finally {
+      try { fs.unlinkSync(rawPath); } catch (_) {}
+    }
+  });
+
   ipcMain.handle('dialog', async (event, method, params) => {       
     // If the platform is 'darwin' (macOS)
     try {

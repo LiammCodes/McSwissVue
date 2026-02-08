@@ -8,7 +8,7 @@ const ls = new SecureLS();
 const ENCRYPTED_KEYS = [
   'prevOutputPath', 'segOutputPath', 'segSuffix', 'hypThumbOutputPath',
   'transOutputPath', 'transMethod', 'conOutputPath',
-  's3AccessKey', 's3BucketName', 's3SecretKey', 'trintKey',
+  's3AccessKey', 's3BucketName', 's3SecretKey',
 ] as const;
 type EncryptedKey = (typeof ENCRYPTED_KEYS)[number];
 
@@ -48,7 +48,6 @@ export const useAppStore = defineStore({
     s3SecretKey: loadStoredEncryptedString('s3SecretKey'),
     selectedView: loadStoredView(),
     theme: loadStoredTheme(),
-    trintApiKey: loadStoredEncryptedString('trintKey'),
   }),
   getters: {
     themeType(): 'dark' | 'light' {
@@ -74,16 +73,13 @@ export const useAppStore = defineStore({
       this.setTitleBarStyle(newTheme)
     },
     setEncrypted(key: EncryptedKey, value: string) {
-      (this as Record<string, string>)[key === 'trintKey' ? 'trintApiKey' : key] = value;
+      (this as Record<string, string>)[key] = value;
       ls.set(key, { data: value });
     },
     setS3Data(s3BucketName: string, s3AccessKey: string, s3SecretKey: string) {
       this.setEncrypted('s3BucketName', s3BucketName);
       this.setEncrypted('s3AccessKey', s3AccessKey);
       this.setEncrypted('s3SecretKey', s3SecretKey);
-    },
-    setTrintKey(trintKey: string) {
-      this.setEncrypted('trintKey', trintKey);
     },
     setPrevOutputPath(path: string) {
       this.setEncrypted('prevOutputPath', path);

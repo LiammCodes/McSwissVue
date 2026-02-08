@@ -79,33 +79,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Trint Settings card -->
-      <div class="col-span-3 bg-base-200 rounded-xl p-4">
-        <div class="flex items-center mb-2">
-          <chat-bubble-bottom-center-text-icon class="h-5 w-5 mr-2" />
-          <span class="text-lg font-semibold flex-grow">Trint Settings</span>
-          <span v-if="trintTestLoading" class="loading loading-spinner text-primary mr-2"></span>
-          <div v-else>
-            <check-circle-icon v-if="trintTestPass && trintTestPass !== null" class="h-6 w-6 mr-2 text-success"/>
-            <x-circle-icon v-if="!trintTestPass && trintTestPass !== null" class="h-6 w-6 mr-2 text-error"/>
-          </div>
-          <label class="btn btn-sm btn-outline" @click="testTrintConnection()">
-            test
-          </label>
-        </div>
-        <div class="flex space-x-6 max-w-2xl">
-          <div class="flex-col w-60 text-right">
-            Trint API Key:
-          </div>
-          <input
-            type="password"
-            v-model="trintApiKey"
-            class="input input-sm w-full focus:outline-none"
-          />
-        </div>
-
-      </div>
     </div>
   </div>
 
@@ -126,12 +99,12 @@
 import { defineComponent } from 'vue';
 import McDataIntake from '../components/McDataIntake.vue';
 import { useAppStore } from '../stores/appStore';
-import { ChatBubbleBottomCenterTextIcon, CloudIcon, ServerStackIcon } from '@heroicons/vue/24/outline';
+import { CloudIcon, ServerStackIcon } from '@heroicons/vue/24/outline';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/vue/20/solid';
 
 export default defineComponent({
   name: 'SettingsView',
-  components: { ChatBubbleBottomCenterTextIcon, CheckCircleIcon, CloudIcon, McDataIntake, ServerStackIcon, XCircleIcon },
+  components: { CheckCircleIcon, CloudIcon, McDataIntake, ServerStackIcon, XCircleIcon },
   emits: ['toggle-toast'],
   setup() {
     const appStore = useAppStore();
@@ -148,11 +121,8 @@ export default defineComponent({
       s3Bucket: '' as string,
       s3Access: '' as string,
       s3Secret: '' as string,
-      trintApiKey: '' as string,
       awsTestPass: null as null | boolean,
       awsTestLoading: false as boolean,
-      trintTestPass: null as null | boolean,
-      trintTestLoading: false as boolean,
     }
   },
   async mounted() {
@@ -175,7 +145,6 @@ export default defineComponent({
       this.s3Bucket = this.appStore.s3BucketName;
       this.s3Access = this.appStore.s3AccessKey;
       this.s3Secret = this.appStore.s3SecretKey;
-      this.trintApiKey = this.appStore.trintApiKey;
     },
 
     goToWebsite() {
@@ -202,35 +171,8 @@ export default defineComponent({
       this.awsTestLoading = false;
     },
 
-    testTrintConnection() {
-      this.trintTestLoading = true;
-      const options = {
-        method: 'GET',
-        headers: {
-          accept: 'application/json',
-          'api-key': this.trintApiKey
-        }
-      };
-
-      fetch('https://api.trint.com/transcripts/?limit=1&skip=0', options)
-        .then(response => response.json())
-        .then(response => {
-          if (response.error != null) {
-            this.trintTestPass = false;
-          } else {
-            this.trintTestPass = true;
-          }
-        })
-        .catch(err => {
-          this.trintTestPass = false;
-        }).finally(() => {
-          this.trintTestLoading = false;
-        });
-    },
-
     handleSave() {
       this.appStore.setS3Data(this.s3Bucket, this.s3Access, this.s3Secret);
-      this.appStore.setTrintKey(this.trintApiKey);
       this.$emit('toggle-toast', {
         message: 'Settings Saved 💾',
         kind: 'alert-success',
