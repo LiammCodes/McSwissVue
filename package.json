@@ -6,7 +6,7 @@
   "version": "0.2.3",
   "versionReleased": "2024-05-29",
   "type": "module",
-  "main": "./electron.js",
+  "main": "./electron.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -40,7 +40,6 @@
     "electron-updater": "^6.1.8",
     "ffmpeg-static": "^5.1.0",
     "pinia": "^2.0.34",
-    "request": "^2.88.2",
     "rollup-plugin-node-builtins": "^2.1.2",
     "secure-ls": "^1.2.6",
     "vite-plugin-electron-renderer": "^0.14.5",

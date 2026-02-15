@@ -97,7 +97,6 @@ export default defineComponent({
   data() {
     return {
       binaryModalResolver: null as (() => void) | null,
-      bitrate: '3000' as string,
       errorMessage: '' as string,
       files: ref<File[]>([]),
       fileObjects: [] as FileData[],
@@ -139,7 +138,7 @@ export default defineComponent({
   },
   computed: {
     progress(): number {
-      const denominator = this.selectedMethod.value === 'upload' ? 5 : 4; // local = 4 steps, upload = 5
+      const denominator = this.selectedMethod.value === 'upload' ? 5 : 4;
       if (this.statuses.length === 0) return 0;
       const sum = this.statuses.reduce((acc: number, s: Status) => acc + s.value, 0);
       return (sum / this.statuses.length / denominator) * 100;
@@ -230,10 +229,6 @@ export default defineComponent({
     },
 
     errorsFlagged(): boolean {
-      if (!/^\d+$/.test(this.bitrate)) {
-        this.toastMessage = 'Please enter a valid bitrate';
-        return true;
-      }
       if (
         (this.outputFilePath === 'None' || !this.outputFilePath) &&
         this.selectedMethod.value === 'local'
@@ -258,6 +253,7 @@ export default defineComponent({
       try {
         this.statuses[index] = { label: 'Transcribing', color: 'text-warning', value: 2 };
 
+        // Transcription runs in main process (see electron.cjs 'transcribe-video' handler)
         const { vtt: vttContent } = await this.ipcRenderer.invoke('transcribe-video', { videoPath });
 
         this.statuses[index] = {
@@ -270,7 +266,6 @@ export default defineComponent({
           await this.uploadVttToS3(vttContent, index, this.removeExtension(filename) + '.vtt');
           this.statuses[index] = { label: 'Complete', color: 'text-success', value: 5 };
         } else {
-          // local: write VTT to disk only, no S3
           const outPath = this.path.join(
             this.outputFilePath,
             this.removeExtension(filename) + '.vtt'
@@ -336,6 +331,7 @@ export default defineComponent({
       this.transcribing = false;
 
       if (error === '') {
+        const aborted = this.overwriteResponse === false;
         if (this.overwriteResponse || this.overwriteResponse === null) {
           this.toastMessage = this.successToastMessage;
         } else {
@@ -343,13 +339,15 @@ export default defineComponent({
         }
         this.toast = {
           message: this.overwriteResponse ? this.successToastMessage : this.toastMessage,
-          kind: 'alert-success',
+          kind: aborted ? 'alert-info' : 'alert-success',
           timeout: 5000,
         };
         this.$emit('toggle-toast', this.toast);
-        new window.Notification('Transcript Generation Complete', {
-          body: this.successToastMessage,
-        });
+        if (!aborted) {
+          new window.Notification('Transcript Generation Complete', {
+            body: this.successToastMessage,
+          });
+        }
       } else {
         this.resetStatuses();
         this.toast = {
@@ -373,6 +371,15 @@ export default defineComponent({
     },
 
     async handleTranscribe() {
+      if (this.fileObjects.length === 0) {
+        this.toast = {
+          message: 'Please add at least one file to transcribe.',
+          kind: 'alert-error',
+          timeout: 3000,
+        };
+        this.$emit('toggle-toast', this.toast);
+        return;
+      }
       if (this.errorsFlagged()) {
         this.toast = {
           message: this.toastMessage,

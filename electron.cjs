@@ -169,8 +169,6 @@ app.whenReady().then(() => {
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);
       return { vtt };
-    } catch (err) {
-      throw err;
     } finally {
       try { fs.unlinkSync(rawPath); } catch (_) {}
     }
