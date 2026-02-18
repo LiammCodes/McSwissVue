@@ -72,11 +72,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Ensure latest-mac.yml for electron-updater
+        run: |
+          # Updater requests latest-mac.yml; builder may only write latest-mac-arm64.yml
+          if [ -f build/latest-mac-arm64.yml ] && [ ! -f build/latest-mac.yml ]; then
+            cp build/latest-mac-arm64.yml build/latest-mac.yml
+          fi
+          ls -la build/*.yml build/*.dmg 2>/dev/null || true
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: mac-build
-          path: build/*.dmg
+          path: build/
 
   build-win:
     needs: get-version
@@ -110,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: win-build
-          path: build/*.exe
+          path: build/
 
   release:
     needs: [get-version, build-mac, build-win]
@@ -132,11 +140,17 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          # Copy installers to root so gh-release can attach them reliably
+          # Copy installers and update metadata (yml) so gh-release can attach them
           cp mac-build/*.dmg . 2>/dev/null || true
+          cp mac-build/*.yml . 2>/dev/null || true
           cp win-build/*.exe . 2>/dev/null || true
+          cp win-build/*.yml . 2>/dev/null || true
+          # electron-updater on Mac requests latest-mac.yml; ensure it exists
+          if [ -f latest-mac-arm64.yml ] && [ ! -f latest-mac.yml ]; then
+            cp latest-mac-arm64.yml latest-mac.yml
+          fi
           echo "Release assets:"
-          ls -la *.dmg *.exe 2>/dev/null || true
+          ls -la *.dmg *.exe *.yml 2>/dev/null || true
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -151,6 +165,7 @@ jobs:
           files: |
             *.dmg
             *.exe
+            *.yml
           fail_on_unmatched_files: true
           draft: false
           generate_release_notes: true
