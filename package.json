@@ -91,10 +91,12 @@
       "node_modules/onnxruntime-node/**"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": "AppImage"
