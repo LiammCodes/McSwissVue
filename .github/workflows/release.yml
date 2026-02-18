@@ -1,0 +1,147 @@
+# Create a release on every push to main with auto version (patch bump) and date.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Avoid re-running when this workflow pushes a version bump (optional safety)
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  get-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.next.outputs.version }}
+      date: ${{ steps.date.outputs.date }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get next version
+        id: next
+        run: |
+          # Fetch latest release tag (requires repo read)
+          TAG=$(curl -sS -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest" | jq -r '.tag_name // empty')
+          if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+            # No releases yet: use version from package.json
+            VER=$(jq -r '.version' package.json)
+          else
+            # Strip 'v' and bump patch (e.g. v0.2.3 -> 0.2.4)
+            VER=$(echo "$TAG" | sed 's/^v//')
+          fi
+          # Bump patch: 0.2.3 -> 0.2.4
+          NEXT=$(echo "$VER" | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "Releasing version $NEXT"
+
+      - name: Set release date
+        id: date
+        run: |
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+  build-mac:
+    needs: get-version
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Set version in package.json
+        run: |
+          npm pkg set version="${{ needs.get-version.outputs.version }}"
+          npm pkg set versionReleased="${{ needs.get-version.outputs.date }}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Build macOS artifact
+        run: npx electron-builder --mac --arm64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-build
+          path: build/*.dmg
+
+  build-win:
+    needs: get-version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Set version in package.json
+        run: |
+          npm pkg set version="${{ needs.get-version.outputs.version }}"
+          npm pkg set versionReleased="${{ needs.get-version.outputs.date }}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build app
+        run: npm run build
+
+      - name: Build Windows artifact
+        run: npx electron-builder --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-build
+          path: build/*.exe
+
+  release:
+    needs: [get-version, build-mac, build-win]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-build
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: win-build
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.get-version.outputs.version }}
+          name: Release ${{ needs.get-version.outputs.version }} (${{ needs.get-version.outputs.date }})
+          body: |
+            **Version** ${{ needs.get-version.outputs.version }}
+            **Date** ${{ needs.get-version.outputs.date }}
+
+            Built from commit ${{ github.sha }}
+          files: |
+            mac-build/*.dmg
+            win-build/*.exe
+          draft: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

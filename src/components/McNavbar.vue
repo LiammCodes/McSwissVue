@@ -18,12 +18,17 @@
       <div class="flex-none gap-1">
         <button
           type="button"
-          class="btn btn-ghost btn-square"
+          class="btn btn-ghost btn-square relative"
           :class="{ 'btn-active': currentViewName === views.settings }"
           :aria-label="views.settings"
           @click="handleNavClick(views.settings)"
         >
           <cog-6-tooth-icon class="h-5 w-5" />
+          <span
+            v-if="appStore.updateAvailable"
+            class="absolute top-1 right-1 h-2 w-2 rounded-full bg-secondary ring-2 ring-primary"
+            aria-hidden="true"
+          />
         </button>
         <div class="dropdown dropdown-end">
           <label tabindex="0" class="btn btn-ghost gap-2">

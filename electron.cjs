@@ -75,15 +75,50 @@ function clearTempFiles() {
   }
 }
 
-app.on('ready', function()  {
-  autoUpdater.checkForUpdatesAndNotify();
-});
-
 app.whenReady().then(() => {
-  // autoUpdater.checkForUpdates()
-  // Menu.setApplicationMenu(Menu.buildFromTemplate([]));
   require('@electron/remote/main').initialize()
   createWindow();
+
+  // Forward autoUpdater events to renderer (window must exist)
+  function sendToRenderer(channel, ...args) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(channel, ...args);
+    }
+  }
+  autoUpdater.on('update-available', (info) => {
+    sendToRenderer('update-available', { version: info.version });
+  });
+  autoUpdater.on('update-not-available', () => {
+    sendToRenderer('update-not-available');
+  });
+  autoUpdater.on('download-progress', () => {
+    sendToRenderer('update-downloading');
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    sendToRenderer('update-downloaded', { version: info.version });
+  });
+  autoUpdater.on('error', (err) => {
+    sendToRenderer('update-error', { message: err.message });
+  });
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    if (!isDev) {
+      autoUpdater.checkForUpdatesAndNotify();
+    }
+  });
+
+  ipcMain.handle('check-for-updates', async () => {
+    if (isDev) {
+      sendToRenderer('update-not-available');
+      return { ok: true };
+    }
+    autoUpdater.checkForUpdates();
+    return { ok: true };
+  });
+
+  ipcMain.handle('quit-and-install', () => {
+    autoUpdater.quitAndInstall();
+  });
 
   ipcMain.handle('get-app-path', async (event) => {
     const result = isDev ? 'src/temp' : app.getPath("temp");
@@ -203,21 +238,6 @@ app.whenReady().then(() => {
   });
 
 });
-
-// autoUpdater.on("update-available", (info) => {
-//   showNotification('Update Available', 'Downloading the newest update')
-//   autoUpdater.downloadUpdate();
-// })
-
-// autoUpdater.on("update-downloaded", (info) => {
-//   showNotification('Update Downloaded', `Version ${pythonjs.version} has been installed`)
-//   autoUpdater.downloadUpdate();
-// })
-
-// autoUpdater.on("error", (info) => {
-//   showNotification('Error Updating', `${info}`)
-//   autoUpdater.downloadUpdate();
-// })
 
 app.on('window-all-closed', () => {
   clearTempFiles();

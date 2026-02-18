@@ -12,6 +12,40 @@
             </div>
           </div>
 
+          <div class="flex flex-col items-center gap-2 mb-3">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline btn-primary"
+                :disabled="appStore.updateStatus === 'checking'"
+                @click="checkForUpdates"
+              >
+                <span v-if="appStore.updateStatus === 'checking'" class="loading loading-spinner loading-sm" />
+                {{ appStore.updateStatus === 'checking' ? 'Checking…' : 'Check for updates' }}
+              </button>
+              <button
+                v-if="appStore.updateStatus === 'downloaded'"
+                type="button"
+                class="btn btn-sm btn-primary"
+                @click="restartToInstall"
+              >
+                Restart to install
+              </button>
+            </div>
+            <p v-if="appStore.updateStatus === 'available'" class="text-sm text-primary">
+              Update available: v{{ appStore.updateInfo?.version }}
+            </p>
+            <p v-if="appStore.updateStatus === 'downloading'" class="text-sm text-primary">
+              Downloading update…
+            </p>
+            <p v-if="appStore.updateStatus === 'downloaded'" class="text-sm text-success">
+              Ready to install v{{ appStore.updateInfo?.version }}
+            </p>
+            <p v-if="appStore.updateStatus === 'error'" class="text-sm text-error">
+              {{ appStore.updateError || 'Update check failed' }}
+            </p>
+          </div>
+
           <div class="flex space-x-3 justify-center bg-base-100 py-5 px-10 rounded-lg">
             <div class="flex-col text-right">
               <div>Name:</div>
@@ -182,6 +216,15 @@ export default defineComponent({
 
     handleRevert() {
       this.setKeysFromStorage();
+    },
+
+    async checkForUpdates() {
+      this.appStore.setUpdateStatus('checking');
+      await this.ipcRenderer.invoke('check-for-updates');
+    },
+
+    restartToInstall() {
+      this.ipcRenderer.invoke('quit-and-install');
     }
   }
 });

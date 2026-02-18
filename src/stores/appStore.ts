@@ -48,6 +48,11 @@ export const useAppStore = defineStore({
     s3SecretKey: loadStoredEncryptedString('s3SecretKey'),
     selectedView: loadStoredView(),
     theme: loadStoredTheme(),
+
+    updateAvailable: false,
+    updateInfo: null as { version: string } | null,
+    updateStatus: 'idle' as 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error',
+    updateError: null as string | null,
   }),
   getters: {
     themeType(): 'dark' | 'light' {
@@ -101,6 +106,25 @@ export const useAppStore = defineStore({
     },
     setConOutputPath(path: string) {
       this.setEncrypted('conOutputPath', path);
+    },
+    setUpdateAvailable(available: boolean, info?: { version: string }) {
+      this.updateAvailable = available;
+      this.updateInfo = available && info ? info : null;
+      if (available && info) this.updateStatus = 'available';
+    },
+    setUpdateStatus(status: 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error', error?: string) {
+      this.updateStatus = status;
+      this.updateError = error ?? null;
+      if (status === 'available' && this.updateInfo) this.updateAvailable = true;
+      if (status === 'idle') {
+        this.updateAvailable = false;
+        this.updateInfo = null;
+      }
+    },
+    setUpdateDownloaded(version: string) {
+      this.updateStatus = 'downloaded';
+      this.updateInfo = { version };
+      this.updateAvailable = true;
     },
   },
 });

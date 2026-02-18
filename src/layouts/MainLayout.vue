@@ -45,11 +45,44 @@ export default defineComponent({
   // },
   mounted() {
     this.$router.push({ name: this.appStore.selectedView });
+    this.setupUpdateListeners();
   },
   methods: {
     toggleToast(newToast: Toast): void {
       this.toast = newToast;
       this.showToast = true;
+    },
+    setupUpdateListeners() {
+      const { ipcRenderer } = require('electron');
+      ipcRenderer.on('update-available', (_event: Event, info: { version: string }) => {
+        this.appStore.setUpdateAvailable(true, { version: info.version });
+        this.toggleToast({
+          message: `Update available: v${info.version}. It will install when you quit the app.`,
+          kind: 'alert-info',
+          timeout: 6000
+        });
+      });
+      ipcRenderer.on('update-not-available', () => {
+        const wasUserCheck = this.appStore.updateStatus === 'checking';
+        this.appStore.setUpdateStatus('idle');
+        if (wasUserCheck) {
+          this.toggleToast({ message: 'You’re on the latest version.', kind: 'alert-success', timeout: 3000 });
+        }
+      });
+      ipcRenderer.on('update-downloading', () => {
+        this.appStore.setUpdateStatus('downloading');
+      });
+      ipcRenderer.on('update-downloaded', (_event: Event, info: { version: string }) => {
+        this.appStore.setUpdateDownloaded(info.version);
+        this.toggleToast({
+          message: `Update v${info.version} downloaded. Restart the app to install.`,
+          kind: 'alert-success',
+          timeout: 8000
+        });
+      });
+      ipcRenderer.on('update-error', (_event: Event, data: { message: string }) => {
+        this.appStore.setUpdateStatus('error', data.message);
+      });
     }
   }
 });
