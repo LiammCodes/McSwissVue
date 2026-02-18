@@ -1,14 +1,21 @@
 // const { setupTitlebar, attachTitlebarToWindow } = require('custom-electron-titlebar/main');
 const { app, BrowserWindow, Notification, Menu, ipcMain, dialog } = require('electron');
 const fs = require('fs');
-const path = require('path')
+const path = require('path');
+const Module = require('module');
 const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
 
-// When packaged, node_modules live in app.asar.unpacked; add so require() and package "exports" resolve correctly (Windows)
+// When packaged, create a require that resolves from app.asar.unpacked so @huggingface/transformers (and exports) work on Windows
+let unpackedRequire = null;
 if (!isDev) {
-  const appRoot = __dirname.replace('app.asar', 'app.asar.unpacked');
-  module.paths.unshift(path.join(appRoot, 'node_modules'));
+  try {
+    const appRoot = __dirname.replace(/app\.asar$/i, 'app.asar.unpacked');
+    const transformersPkg = path.join(appRoot, 'node_modules', '@huggingface', 'transformers', 'package.json');
+    if (fs.existsSync(transformersPkg)) {
+      unpackedRequire = Module.createRequire(transformersPkg);
+    }
+  } catch (_) {}
 }
 
 const { autoUpdater, AppUpdater } = require('electron-updater')
@@ -206,8 +213,8 @@ app.whenReady().then(() => {
     try {
       await extractAudioToRaw(videoPath, rawPath);
       const audio = loadRawF32(rawPath);
-      // Resolves via app.asar.unpacked/node_modules (see module.paths setup at top when packaged)
-      const { pipeline } = require('@huggingface/transformers');
+      const requireTransformers = unpackedRequire || require;
+      const { pipeline } = requireTransformers('@huggingface/transformers');
       const transcriber = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);
