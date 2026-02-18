@@ -86,6 +86,10 @@
       "preload.ts",
       "electron.cjs"
     ],
+    "asarUnpack": [
+      "node_modules/@huggingface/transformers/**",
+      "node_modules/onnxruntime-node/**"
+    ],
     "win": {
       "target": "nsis"
     },
