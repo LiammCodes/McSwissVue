@@ -59,6 +59,7 @@ const TOOL_VIEWS: View[] = [
   'Segment Generator',
   'Hyper Thumbnail Generator',
   'Transcript Generator',
+  'Transcript Editor',
   'Video Converter',
 ];
 
@@ -116,6 +117,7 @@ function isValidView(name: string): name is View {
     'Thumbnail Generator',
     'Hyper Thumbnail Generator',
     'Transcript Generator',
+    'Transcript Editor',
     'Video Converter',
     'Settings',
   ];

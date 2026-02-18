@@ -1,4 +1,4 @@
-export type View = 'Preview Generator' | 'Segment Generator' | 'Thumbnail Generator' | 'Hyper Thumbnail Generator' | 'Transcript Generator' | 'Video Converter' | 'Settings';
+export type View = 'Preview Generator' | 'Segment Generator' | 'Thumbnail Generator' | 'Hyper Thumbnail Generator' | 'Transcript Generator' | 'Transcript Editor' | 'Video Converter' | 'Settings';
 
 export type Toast = {
   message: string,

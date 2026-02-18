@@ -4,6 +4,7 @@ import HyperThumbnailGen from '../views/HyperThumbnailGen.vue';
 import SegmentGen from '../views/SegmentGen.vue';
 import VideoConverter from '../views/VideoConverter.vue';
 import TranscriptGenerator from '../views/TranscriptGenerator.vue';
+import TranscriptEditor from '../views/TranscriptEditor.vue';
 import SettingsView from '../views/SettingsView.vue';
 
 const routes: RouteRecordRaw[] = [
@@ -31,6 +32,11 @@ const routes: RouteRecordRaw[] = [
     path: '/transcript-generator',
     name: 'Transcript Generator',
     component: TranscriptGenerator,
+  },
+  {
+    path: '/transcript-editor',
+    name: 'Transcript Editor',
+    component: TranscriptEditor,
   },
   {
     path: '/settings',
