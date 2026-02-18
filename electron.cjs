@@ -199,8 +199,10 @@ app.whenReady().then(() => {
     try {
       await extractAudioToRaw(videoPath, rawPath);
       const audio = loadRawF32(rawPath);
-      // Use explicit Node build path so resolution works when packaged (e.g. Windows .exe)
-      const { pipeline } = require('@huggingface/transformers/dist/transformers.node.cjs');
+      // Load from app.asar.unpacked when packaged (Node resolves require() inside asar, so package isn't found there)
+      const appRoot = __dirname.replace('app.asar', 'app.asar.unpacked');
+      const transformersPath = path.join(appRoot, 'node_modules', '@huggingface', 'transformers', 'dist', 'transformers.node.cjs');
+      const { pipeline } = require(transformersPath);
       const transcriber = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);
