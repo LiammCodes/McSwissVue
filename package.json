@@ -13,6 +13,7 @@
     "serve": "vite preview",
     "electron:dev": "npm run dev & electron ./electron.cjs",
     "electron:build": "npm run build && electron-builder",
+    "postinstall": "node scripts/patch-transformers-exports.cjs",
     "publish:win": "electron-builder --win --x64 -p always",
     "publish:mac": "electron-builder --mac --arm64 -p always",
     "publish": "electron-builder -p always"
