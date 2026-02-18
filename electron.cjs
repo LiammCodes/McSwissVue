@@ -4,6 +4,13 @@ const fs = require('fs');
 const path = require('path')
 const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
+
+// When packaged, node_modules live in app.asar.unpacked; add so require() and package "exports" resolve correctly (Windows)
+if (!isDev) {
+  const appRoot = __dirname.replace('app.asar', 'app.asar.unpacked');
+  module.paths.unshift(path.join(appRoot, 'node_modules'));
+}
+
 const { autoUpdater, AppUpdater } = require('electron-updater')
 
 // setup the titlebar main process
@@ -199,10 +206,8 @@ app.whenReady().then(() => {
     try {
       await extractAudioToRaw(videoPath, rawPath);
       const audio = loadRawF32(rawPath);
-      // Load from app.asar.unpacked when packaged (Node resolves require() inside asar, so package isn't found there)
-      const appRoot = __dirname.replace('app.asar', 'app.asar.unpacked');
-      const transformersPath = path.join(appRoot, 'node_modules', '@huggingface', 'transformers', 'dist', 'transformers.node.cjs');
-      const { pipeline } = require(transformersPath);
+      // Resolves via app.asar.unpacked/node_modules (see module.paths setup at top when packaged)
+      const { pipeline } = require('@huggingface/transformers');
       const transcriber = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);
