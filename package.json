@@ -71,15 +71,7 @@
     "extraMetadata": {
       "main": "./electron.cjs"
     },
-    "extraFiles": [
-      {
-        "from": "resources/mac/bin",
-        "to": "Resources/bin",
-        "filter": [
-          "**/*"
-        ]
-      }
-    ],
+    "extraFiles": [],
     "extends": null,
     "files": [
       "dist/**/*",
@@ -98,7 +90,8 @@
     },
     "mac": {
       "target": "dmg",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "identity": null
     },
     "linux": {
       "target": "AppImage"
