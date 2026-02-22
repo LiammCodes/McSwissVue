@@ -42,6 +42,7 @@
     "pinia": "^2.0.34",
     "rollup-plugin-node-builtins": "^2.1.2",
     "secure-ls": "^1.2.6",
+    "sharp": "^0.34.1",
     "vite-plugin-electron-renderer": "^0.14.5",
     "vue": "^3.2.45",
     "vue-router": "^4.1.6",
@@ -82,7 +83,8 @@
       "node_modules/@huggingface/transformers/**",
       "node_modules/onnxruntime-node/**",
       "node_modules/ffmpeg-static/**",
-      "node_modules/@ffprobe-installer/**"
+      "node_modules/@ffprobe-installer/**",
+      "node_modules/sharp/**"
     ],
     "win": {
       "target": "nsis",
