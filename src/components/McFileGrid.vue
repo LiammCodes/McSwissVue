@@ -82,8 +82,9 @@
 
 <script lang="ts">
 
-import { defineComponent, PropType, } from "vue";
+import { defineComponent, PropType } from "vue";
 import { FileData, SelectOption, Status } from "../types/Types";
+import { getFilePath } from "../utils/electronFilePath";
 
 export default defineComponent({
   props: {
@@ -120,8 +121,7 @@ export default defineComponent({
     const ffprobe = require('@ffprobe-installer/ffprobe').path;
     const spawn = require('child_process').spawn;
     const fs = require('fs');
-
-    return { ffmpeg, ffprobe, fs, ipcRenderer, path, spawn }
+    return { ffmpeg, ffprobe, fs, ipcRenderer, path, spawn, getFilePath }
   },
 
   data() {
@@ -221,10 +221,16 @@ export default defineComponent({
     async buildFileObjects(files: File[]) {
       console.log('building files')
       this.filesLoading = true;
-      
+      const filesWithPath = files.filter((file: File) => {
+        const p = this.getFilePath(file);
+        if (!p) console.warn('[McFileGrid] Skipping file with no path:', file.name);
+        return !!p;
+      });
+      if (filesWithPath.length < files.length) {
+        console.warn('[McFileGrid]', files.length - filesWithPath.length, 'file(s) skipped (no filesystem path)');
+      }
       try {
-        // Use Promise.all to process all files concurrently
-        const fileProcessingPromises = files.map(async (file: File) => {
+        const fileProcessingPromises = filesWithPath.map(async (file: File) => {
           const metadata = await this.getMetaData(file);
           const thumbnailPath = await this.generateThumbnail(file, this.calculateTimeMidpoint(metadata.duration));
           const fileObj = {
@@ -251,10 +257,14 @@ export default defineComponent({
     },
 
     async generateThumbnail(file: File, cutTime: string): Promise<string> {
+      const filePath = this.getFilePath(file);
+      if (!filePath) {
+        return Promise.reject(new Error('File has no filesystem path (required for thumbnail)'));
+      }
       return new Promise<string>((resolve, reject) => {
         const thumbnailFileName = this.path.basename(file.name, this.path.extname(file.name)) + ".png";
         // @ts-ignore
-        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ['-y', '-ss', cutTime, '-i', file.path, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
+        const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ['-y', '-ss', cutTime, '-i', filePath, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
         
         childProcess.on('close', (code: any) => {
           // console.log("created the thumbnail: " + thumbnailFileName);
@@ -269,6 +279,10 @@ export default defineComponent({
     },
 
     async getMetaData(file: any) {
+      const filePath = this.getFilePath(file);
+      if (!filePath) {
+        return Promise.reject(new Error('File has no filesystem path (required for ffprobe)'));
+      }
       return new Promise<{ bitrate: string; duration: string; size: string; width: number; height: number }>((resolve, reject) => {
         const result = {
           bitrate: '' as string,
@@ -283,7 +297,7 @@ export default defineComponent({
           '-v', 'error',
           '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,width,height',
           '-of', 'json',
-          '-i', file.path + '',
+          '-i', filePath,
         ]);
         childProcess.stdout.on('data', (data: Buffer) => {
           stdoutChunks.push(data);
@@ -292,7 +306,7 @@ export default defineComponent({
         childProcess.on('close', (code: number) => {
           try {
             if (code !== 0) {
-              console.warn('[getMetaData] ffprobe exited with code', code, 'for', file.path);
+              console.warn('[getMetaData] ffprobe exited with code', code, 'for', filePath);
             }
             const raw = Buffer.concat(stdoutChunks).toString('utf8').trim();
             const json = raw ? JSON.parse(raw) : {};

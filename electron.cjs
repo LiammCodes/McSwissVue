@@ -29,7 +29,6 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      enableRemoteModule: true,
       webSecurity: false,
       // sandbox: false,
       // preload: path.join(__dirname, 'preload.ts')
@@ -199,8 +198,8 @@ app.whenReady().then(() => {
     try {
       await extractAudioToRaw(videoPath, rawPath);
       const audio = loadRawF32(rawPath);
-      // Use explicit Node build path so resolution works when packaged (e.g. Windows .exe)
-      const { pipeline } = require('@huggingface/transformers/dist/transformers.node.cjs');
+      // Package exports: require('@huggingface/transformers') resolves to Node build in Node/Electron
+      const { pipeline } = require('@huggingface/transformers');
       const transcriber = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);

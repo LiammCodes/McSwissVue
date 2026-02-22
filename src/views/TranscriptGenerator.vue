@@ -75,6 +75,7 @@ import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
 import { FileData, SelectOption, Status, Toast } from '../types/Types';
 import { fileAlreadyExists, removeExtension } from '../utils/HelperFunctions';
+import { getFilePath } from '../utils/electronFilePath';
 import McFileUpload from '../components/McFileUpload.vue';
 import McFileGrid from '../components/McFileGrid.vue';
 import McDataIntake from '../components/McDataIntake.vue';
@@ -243,7 +244,7 @@ export default defineComponent({
     removeExtension,
 
     async transcribeOneFile(fileObj: FileData, index: number): Promise<void> {
-      const videoPath = (fileObj.file as File & { path?: string }).path;
+      const videoPath = getFilePath(fileObj.file!);
       const filename = fileObj.file!.name;
       if (!videoPath) {
         this.statuses[index] = { label: 'Error', color: 'text-error', value: 4 };

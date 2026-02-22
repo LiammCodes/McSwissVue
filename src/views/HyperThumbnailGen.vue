@@ -77,6 +77,7 @@ import McDataIntake from '../components/McDataIntake.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
 import McTimeInput from '../components/McTimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
+import { getFilePath } from '../utils/electronFilePath';
 
 
 export default defineComponent({
@@ -280,7 +281,7 @@ export default defineComponent({
         this.files.forEach((file: any, i: number) => {
           const ffmpegCommand = [
             '-ss', this.time,
-            '-i', file.path,
+            '-i', getFilePath(file),
             '-vframes', '1',
             '-q:v', '2',
             this.path.join(this.outputFilePath, this.removeExtension(file.name) + ".png")

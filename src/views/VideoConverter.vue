@@ -146,6 +146,7 @@ import McDataIntake from '../components/McDataIntake.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
 import McTimeInput from '../components/McTimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
+import { getFilePath } from '../utils/electronFilePath';
 
 
 export default defineComponent({
@@ -543,7 +544,7 @@ export default defineComponent({
 
           const pass1Base = [
             '-y',
-            '-i', fileObj.file.path,
+            '-i', getFilePath(fileObj.file),
             '-c:v', 'libx264',
             '-pass', '1',
             '-b:v', bitrateK,
@@ -560,7 +561,7 @@ export default defineComponent({
 
           const pass2Base = [
             ...overwriteFlag,
-            '-i', fileObj.file.path,
+            '-i', getFilePath(fileObj.file),
             '-c:v', 'libx264',
             '-pass', '2',
             '-b:v', bitrateK,

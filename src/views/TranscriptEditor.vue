@@ -130,6 +130,7 @@ import {
   serializeSubtitle,
   type SubtitleCue,
 } from '../utils/subtitleUtils';
+import { getFilePath } from '../utils/electronFilePath';
 
 const VIDEO_EXT = ['.mp4', '.mov', '.m4v'];
 const TRANSCRIPT_EXT = ['.srt', '.vtt'];
@@ -222,7 +223,7 @@ export default defineComponent({
       if (this.videoObjectUrl) URL.revokeObjectURL(this.videoObjectUrl);
       this.videoFile = video;
       this.transcriptFile = transcript;
-      this.transcriptPath = (transcript as File & { path?: string }).path || '';
+      this.transcriptPath = getFilePath(transcript) || '';
       this.videoObjectUrl = URL.createObjectURL(video);
       this.loadTranscript();
       this.dirty = false;
@@ -277,7 +278,7 @@ export default defineComponent({
     },
     async saveTranscript() {
       if (!this.transcriptFile || this.cues.length === 0) return;
-      const path = (this.transcriptFile as File & { path?: string }).path;
+      const path = getFilePath(this.transcriptFile);
       if (!path) {
         this.saveMessage = 'Cannot save: transcript file path unknown.';
         this.saveError = true;

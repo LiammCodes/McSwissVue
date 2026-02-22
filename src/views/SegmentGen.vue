@@ -101,6 +101,7 @@ import McDataIntake from '../components/McDataIntake.vue';
 import McSegment from '../components/McSegment.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
+import { getFilePath } from '../utils/electronFilePath';
 
 export default defineComponent({
   name: 'SegmentGen',
@@ -344,7 +345,7 @@ export default defineComponent({
             const segmentSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(currentSegmentIndex + 97) : currentSegmentIndex + 1; 
             const ffmpegCommand = [
               // @ts-ignore
-              '-i', this.files[0].path,
+              '-i', getFilePath(this.files[0]),
               '-ss', segment.startTime,
               '-to', segment.endTime,
               '-b:v', '3000k',

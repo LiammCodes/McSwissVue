@@ -83,6 +83,7 @@ import McDataIntake from '../components/McDataIntake.vue';
 import McBinaryModal from '../components/modals/McBinaryModal.vue';
 import McTimeInput from '../components/McTimeInput.vue';
 import McMetaDataColumn from '../components/McMetaDataColumn.vue';
+import { getFilePath } from '../utils/electronFilePath';
 
 
 export default defineComponent({
@@ -297,7 +298,7 @@ export default defineComponent({
           if (currentFileIndex < this.files.length) {
             const file = this.files[currentFileIndex] as any;
             const ffmpegCommand = [
-              '-i', file.path,
+              '-i', getFilePath(file),
               '-ss', this.startTime,
               '-to', this.endTime,
               '-b:v', '3000k',
