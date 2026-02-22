@@ -1,7 +1,17 @@
 // const { setupTitlebar, attachTitlebarToWindow } = require('custom-electron-titlebar/main');
 const { app, BrowserWindow, Notification, Menu, ipcMain, dialog } = require('electron');
 const fs = require('fs');
-const path = require('path')
+const path = require('path');
+
+// When packaged, native addons (sharp, .node) must load from app.asar.unpacked. Per Sharp/Electron
+// docs: unpack sharp and @img; and ensure Node resolves them from unpacked (NODE_PATH).
+if (app.isPackaged && process.resourcesPath) {
+  const unpackedNodeModules = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
+  const existing = process.env.NODE_PATH || '';
+  process.env.NODE_PATH = existing ? unpackedNodeModules + path.delimiter + existing : unpackedNodeModules;
+  require('module').Module._initPaths();
+}
+
 const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
 const { autoUpdater, AppUpdater } = require('electron-updater')
