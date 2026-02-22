@@ -199,8 +199,12 @@ app.whenReady().then(() => {
       await extractAudioToRaw(videoPath, rawPath);
       const audio = loadRawF32(rawPath);
       // Package exports: require('@huggingface/transformers') resolves to Node build in Node/Electron
-      const { pipeline } = require('@huggingface/transformers');
-      const transcriber = await pipeline('automatic-speech-recognition', WHISPER_MODEL);
+      const transformers = require('@huggingface/transformers');
+      // Use writable userData for model cache; default resolves inside app.asar (read-only) and fails when packaged
+      const cacheDir = path.join(app.getPath('userData'), 'transformers-cache');
+      if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+      transformers.env.cacheDir = cacheDir;
+      const transcriber = await transformers.pipeline('automatic-speech-recognition', WHISPER_MODEL);
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);
       return { vtt };
