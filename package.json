@@ -13,6 +13,7 @@
     "serve": "vite preview",
     "electron:dev": "npm run dev & electron ./electron.cjs",
     "electron:build": "npm run build && electron-builder",
+    "install:win": "npm install --include=optional",
     "electron:build:win": "npm run build && electron-builder --win",
     "publish:win": "npm run build && electron-builder --win --x64 -p always",
     "publish:mac": "electron-builder --mac --arm64 -p always",
@@ -50,6 +51,10 @@
     "vue-the-mask": "^0.11.1",
     "vue-toasted": "^1.1.28",
     "vue-toastification": "^2.0.0-rc.5"
+  },
+  "optionalDependencies": {
+    "@img/sharp-win32-x64": "0.34.5",
+    "@img/sharp-libvips-win32-x64": "1.2.4"
   },
   "devDependencies": {
     "@types/fluent-ffmpeg": "^2.1.21",
