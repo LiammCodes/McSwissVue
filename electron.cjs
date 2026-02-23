@@ -139,6 +139,19 @@ app.whenReady().then(() => {
     const SAMPLE_RATE = 16000;
     const WHISPER_MODEL = 'Xenova/whisper-tiny.en';
 
+    console.log('[transcribe] app.isPackaged:', app.isPackaged);
+    console.log('[transcribe] __dirname:', __dirname);
+    console.log('[transcribe] process.resourcesPath:', process.resourcesPath);
+
+    const sharpUnpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'sharp');
+    const imgUnpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@img');
+    console.log('[transcribe] sharp unpacked exists:', fs.existsSync(sharpUnpackedPath));
+    console.log('[transcribe] @img unpacked exists:', fs.existsSync(imgUnpackedPath));
+
+    if (fs.existsSync(imgUnpackedPath)) {
+      console.log('[transcribe] @img contents:', fs.readdirSync(imgUnpackedPath));
+    }
+
     function formatVttTime(seconds) {
       const h = Math.floor(seconds / 3600);
       const m = Math.floor((seconds % 3600) / 60);
@@ -178,7 +191,7 @@ app.whenReady().then(() => {
         proc.on('close', (code) => {
           if (code === 0) return resolve();
           if (/matched no streams|does not contain any stream|Invalid data found/i.test(stderr)) {
-            return reject(new Error('This file has no audio track. Only video files with an audio stream can be transcribed.'));
+            return reject(new Error('This file has no audio track.'));
           }
           reject(new Error('ffmpeg exited ' + code + ': ' + stderr.slice(-500)));
         });
@@ -198,13 +211,32 @@ app.whenReady().then(() => {
     try {
       await extractAudioToRaw(videoPath, rawPath);
       const audio = loadRawF32(rawPath);
-      // Package exports: require('@huggingface/transformers') resolves to Node build in Node/Electron
+
+      if (app.isPackaged) {
+        const Module = require('module');
+        const originalResolve = Module._resolveFilename;
+        Module._resolveFilename = function(request, ...args) {
+          if (request.includes('sharp') || request.includes('@img')) {
+            const patched = request.replace('app.asar', 'app.asar.unpacked');
+            console.log('[transcribe] Patching module path:', request, '->', patched);
+            request = patched;
+          }
+          return originalResolve.call(this, request, ...args);
+        };
+      }
+
+      console.log('[transcribe] Loading @huggingface/transformers...');
       const transformers = require('@huggingface/transformers');
-      // Use writable userData for model cache; default resolves inside app.asar (read-only) and fails when packaged
+      console.log('[transcribe] Transformers loaded OK');
+
       const cacheDir = path.join(app.getPath('userData'), 'transformers-cache');
       if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
       transformers.env.cacheDir = cacheDir;
+
+      console.log('[transcribe] Loading pipeline...');
       const transcriber = await transformers.pipeline('automatic-speech-recognition', WHISPER_MODEL);
+      console.log('[transcribe] Pipeline loaded OK');
+
       const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
       const vtt = transcriptionToVtt(output);
       return { vtt };
