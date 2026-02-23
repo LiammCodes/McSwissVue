@@ -133,7 +133,7 @@ app.whenReady().then(() => {
   })
 
   // Whisper transcription (runs in main process so Node/onnxruntime-node works)
-  ipcMain.handle('transcribe-video', async (event, { videoPath }) => {
+  ipcMain.handle('transcribe-video', async (event, { videoPath, language: uiLanguage }) => {
     const { spawn } = require('child_process');
     const ffmpegPath = require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
     const SAMPLE_RATE = 16000;
@@ -285,7 +285,8 @@ app.whenReady().then(() => {
         stride_length_s: 5,
         task: 'transcribe',
       };
-      let language = WHISPER_LANGUAGE;
+      // UI selection overrides config (uiLanguage: 'en' | 'fr' | null for auto)
+      let language = uiLanguage !== undefined && uiLanguage !== null ? uiLanguage : WHISPER_LANGUAGE;
 
       if (language == null) {
         console.log('[transcribe] Language: auto-detect (window =', WHISPER_DETECT_SEC, 's)');

@@ -48,7 +48,25 @@
           <div class="flex justify-end items-center space-x-2">
             <span>Output: </span><input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
             <label class="btn btn-sm btn-ghost border border-base-content" @click="setOutputPath">browse</label>
-          </div>  
+          </div>
+        </div>
+
+
+
+        <div class="flex justify-end items-center space-x-2">
+          <div class="flex items-center w-full space-x-5">
+            <div class="text-right w-16">
+              <span>Language:</span>
+            </div>
+            <div class="dropdown dropdown-top">
+              <div tabindex="0" role="button" class="btn btn-sm bg-base-100 w-52" style="text-transform: none;">{{ selectedLanguageLabel }}</div>
+              <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mb-2">
+                <li v-for="opt in languageOptions" :key="opt.value ?? 'auto'" @click="selectedLanguage = opt.value">
+                  <a>{{ opt.label }}</a>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
         <label class="btn btn-primary" @click="handleTranscribe()">
           transcribe
@@ -113,6 +131,12 @@ export default defineComponent({
         label: 'Transcribe locally',
         value: 'local',
       } as SelectOption,
+      languageOptions: [
+        { label: 'Auto-detect', value: null },
+        { label: 'English', value: 'en' },
+        { label: 'French', value: 'fr' },
+      ] as { label: string; value: string | null }[],
+      selectedLanguage: null as string | null,
       overwriteResponse: null as null | boolean,
       s3Region: '' as string,
       selectedFile: {
@@ -143,6 +167,10 @@ export default defineComponent({
       if (this.statuses.length === 0) return 0;
       const sum = this.statuses.reduce((acc: number, s: Status) => acc + s.value, 0);
       return (sum / this.statuses.length / denominator) * 100;
+    },
+    selectedLanguageLabel(): string {
+      const opt = this.languageOptions.find((o) => o.value === this.selectedLanguage);
+      return opt ? opt.label : 'Auto-detect';
     },
   },
   methods: {
@@ -255,7 +283,10 @@ export default defineComponent({
         this.statuses[index] = { label: 'Transcribing', color: 'text-warning', value: 2 };
 
         // Transcription runs in main process (see electron.cjs 'transcribe-video' handler)
-        const { vtt: vttContent } = await this.ipcRenderer.invoke('transcribe-video', { videoPath });
+        const { vtt: vttContent } = await this.ipcRenderer.invoke('transcribe-video', {
+          videoPath,
+          language: this.selectedLanguage,
+        });
 
         this.statuses[index] = {
           label: this.selectedMethod.value === 'upload' ? 'Uploading to S3' : 'Writing file',
