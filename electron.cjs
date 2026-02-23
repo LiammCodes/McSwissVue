@@ -137,7 +137,10 @@ app.whenReady().then(() => {
     const { spawn } = require('child_process');
     const ffmpegPath = require('ffmpeg-static').replace('app.asar', 'app.asar.unpacked');
     const SAMPLE_RATE = 16000;
-    const WHISPER_MODEL = 'Xenova/whisper-tiny.en';
+    // Multilingual model supports Canadian French and English (no separate “Canadian” model).
+    const WHISPER_MODEL = 'Xenova/whisper-tiny'; // or Xenova/whisper-small for better quality
+    const WHISPER_LANGUAGE = null; // 'en' | 'fr' | null (null = auto-detect from first N seconds)
+    const WHISPER_DETECT_SEC = 90; // seconds of audio used for language detection (e.g. skip music intro)
 
     console.log('[transcribe] app.isPackaged:', app.isPackaged);
     console.log('[transcribe] __dirname:', __dirname);
@@ -204,6 +207,43 @@ app.whenReady().then(() => {
       return new Float32Array(buffer.buffer, buffer.byteOffset, buffer.length / 4);
     }
 
+    /**
+     * Detect spoken language from the given audio slice.
+     * Whisper prefix order is: <|startoftranscript|> <|lang_id|> <|task|> ...
+     * So we pass only [start] and generate 1 token; that token is the language id.
+     */
+    async function detectWhisperLanguage(transcriber, audioSlice, sampleRate) {
+      const model = transcriber.model;
+      const processor = transcriber.processor;
+      const gc = model.generation_config;
+      if (!gc?.is_multilingual || !gc.lang_to_id) return 'en';
+
+      const processed = await processor(audioSlice);
+      const inputFeatures = processed.input_features;
+
+      const startId = gc.decoder_start_token_id;
+      const initTokens = [startId]; // only start — next token generated is the language token
+
+      const out = await model.generate({
+        inputs: inputFeatures,
+        decoder_input_ids: initTokens,
+        max_new_tokens: 1,
+        return_timestamps: false,
+      });
+
+      const sequences = out.sequences?.tolist ? out.sequences.tolist() : (Array.isArray(out.sequences) ? out.sequences : [out[0]?.tolist?.() ?? out[0]]);
+      const seq = Array.isArray(sequences[0]) ? sequences[0] : sequences;
+      const langTokenId = seq?.length ? seq[seq.length - 1] : null;
+      if (langTokenId == null) return 'en';
+
+      const idToLang = Object.fromEntries(Object.entries(gc.lang_to_id).map(([k, v]) => [v, k]));
+      const token = idToLang[langTokenId];
+      if (!token || typeof token !== 'string') return 'en';
+      const code = token.replace(/^\<\|/, '').replace(/\|\>$/, '');
+      console.log('[transcribe] Detected language:', code);
+      return code;
+    }
+
     const dir = path.dirname(videoPath);
     const base = path.basename(videoPath, path.extname(videoPath));
     const rawPath = path.join(dir, base + '_whisper_audio.raw');
@@ -234,10 +274,36 @@ app.whenReady().then(() => {
       transformers.env.cacheDir = cacheDir;
 
       console.log('[transcribe] Loading pipeline...');
+      console.log('[transcribe] Model:', WHISPER_MODEL);
       const transcriber = await transformers.pipeline('automatic-speech-recognition', WHISPER_MODEL);
       console.log('[transcribe] Pipeline loaded OK');
 
-      const output = await transcriber(audio, { return_timestamps: true, chunk_length_s: 30, stride_length_s: 5 });
+      // task: 'transcribe' = output in source language (e.g. French). 'translate' would output English only.
+      const opts = {
+        return_timestamps: true,
+        chunk_length_s: 30,
+        stride_length_s: 5,
+        task: 'transcribe',
+      };
+      let language = WHISPER_LANGUAGE;
+
+      if (language == null) {
+        console.log('[transcribe] Language: auto-detect (window =', WHISPER_DETECT_SEC, 's)');
+        try {
+          const detectSamples = Math.min(audio.length, WHISPER_DETECT_SEC * SAMPLE_RATE);
+          const detectSlice = audio.slice(0, detectSamples);
+          language = await detectWhisperLanguage(transcriber, detectSlice, SAMPLE_RATE);
+          console.log('[transcribe] Detected:', language);
+        } catch (err) {
+          console.warn('[transcribe] Language detection failed, defaulting to en:', err?.message ?? err);
+          language = 'en';
+        }
+      } else {
+        console.log('[transcribe] Language: fixed =', language);
+      }
+
+      opts.language = language;
+      const output = await transcriber(audio, opts);
       const vtt = transcriptionToVtt(output);
       return { vtt };
     } finally {
