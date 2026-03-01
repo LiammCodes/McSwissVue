@@ -142,6 +142,7 @@ jobs:
         run: |
           # Copy installers and update metadata (yml) so gh-release can attach them
           cp mac-build/*.dmg . 2>/dev/null || true
+          cp mac-build/*.zip . 2>/dev/null || true
           cp mac-build/*.yml . 2>/dev/null || true
           cp win-build/*.exe . 2>/dev/null || true
           cp win-build/*.yml . 2>/dev/null || true
@@ -150,7 +151,7 @@ jobs:
             cp latest-mac-arm64.yml latest-mac.yml
           fi
           echo "Release assets:"
-          ls -la *.dmg *.exe *.yml 2>/dev/null || true
+          ls -la *.dmg *.zip *.exe *.yml 2>/dev/null || true
 
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -164,6 +165,7 @@ jobs:
             Built from commit ${{ github.sha }}
           files: |
             *.dmg
+            *.zip
             *.exe
             *.yml
           fail_on_unmatched_files: true

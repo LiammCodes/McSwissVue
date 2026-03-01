@@ -102,7 +102,11 @@ app.whenReady().then(() => {
     sendToRenderer('update-downloaded', { version: info.version });
   });
   autoUpdater.on('error', (err) => {
-    sendToRenderer('update-error', { message: err.message });
+    let message = err.message;
+    if (err.code === 'ERR_UPDATER_ZIP_FILE_NOT_FOUND' || (message && message.includes('ZIP file not provided'))) {
+      message = 'This release cannot be updated automatically. Please download the latest version from GitHub.';
+    }
+    sendToRenderer('update-error', { message });
   });
 
   mainWindow.webContents.once('did-finish-load', () => {
@@ -126,8 +130,12 @@ app.whenReady().then(() => {
       await autoUpdater.downloadUpdate();
       return { ok: true };
     } catch (err) {
-      sendToRenderer('update-error', { message: err.message });
-      return { ok: false, error: err.message };
+      let message = err.message;
+      if (err.code === 'ERR_UPDATER_ZIP_FILE_NOT_FOUND' || (message && message.includes('ZIP file not provided'))) {
+        message = 'This release cannot be updated automatically. Please download the latest version from GitHub.';
+      }
+      sendToRenderer('update-error', { message });
+      return { ok: false, error: message };
     }
   });
 
