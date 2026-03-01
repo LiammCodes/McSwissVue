@@ -12,16 +12,24 @@
             </div>
           </div>
 
-          <div class="flex flex-col items-center gap-2 mb-3">
-            <div class="flex items-center gap-2">
+          <div class="flex flex-col items-center gap-2 mb-3 w-full max-w-xs">
+            <div class="flex flex-wrap items-center justify-center gap-2">
               <button
                 type="button"
                 class="btn btn-sm btn-outline btn-primary"
-                :disabled="appStore.updateStatus === 'checking'"
+                :disabled="appStore.updateStatus === 'checking' || appStore.updateStatus === 'downloading'"
                 @click="checkForUpdates"
               >
                 <span v-if="appStore.updateStatus === 'checking'" class="loading loading-spinner loading-sm" />
                 {{ appStore.updateStatus === 'checking' ? 'Checking…' : 'Check for updates' }}
+              </button>
+              <button
+                v-if="appStore.updateStatus === 'available'"
+                type="button"
+                class="btn btn-sm btn-primary"
+                @click="downloadUpdate"
+              >
+                Update now
               </button>
               <button
                 v-if="appStore.updateStatus === 'downloaded'"
@@ -29,15 +37,26 @@
                 class="btn btn-sm btn-primary"
                 @click="restartToInstall"
               >
-                Restart to install
+                Install and restart
               </button>
             </div>
             <p v-if="appStore.updateStatus === 'available'" class="text-sm text-primary">
               Update available: v{{ appStore.updateInfo?.version }}
             </p>
-            <p v-if="appStore.updateStatus === 'downloading'" class="text-sm text-primary">
-              Downloading update…
-            </p>
+            <div v-if="appStore.updateStatus === 'downloading'" class="w-full space-y-1">
+              <p class="text-sm text-primary">Downloading update…</p>
+              <progress
+                class="progress progress-primary w-full"
+                :value="appStore.downloadProgress?.percent ?? 0"
+                max="100"
+              />
+              <p v-if="appStore.downloadProgress" class="text-xs text-base-content/70">
+                {{ Math.round(appStore.downloadProgress.percent) }}%
+                <template v-if="appStore.downloadProgress.bytesPerSecond">
+                  · {{ formatSpeed(appStore.downloadProgress.bytesPerSecond) }}
+                </template>
+              </p>
+            </div>
             <p v-if="appStore.updateStatus === 'downloaded'" class="text-sm text-success">
               Ready to install v{{ appStore.updateInfo?.version }}
             </p>
@@ -221,6 +240,21 @@ export default defineComponent({
     async checkForUpdates() {
       this.appStore.setUpdateStatus('checking');
       await this.ipcRenderer.invoke('check-for-updates');
+    },
+
+    async downloadUpdate() {
+      this.appStore.setUpdateStatus('downloading');
+      this.appStore.setDownloadProgress({ percent: 0, transferred: 0, total: 0, bytesPerSecond: 0 });
+      const result = await this.ipcRenderer.invoke('download-update');
+      if (!result?.ok) {
+        this.appStore.setUpdateStatus('error', result?.error ?? 'Download failed');
+      }
+    },
+
+    formatSpeed(bytesPerSecond: number): string {
+      if (bytesPerSecond >= 1024 * 1024) return `${(bytesPerSecond / 1024 / 1024).toFixed(1)} MB/s`;
+      if (bytesPerSecond >= 1024) return `${(bytesPerSecond / 1024).toFixed(1)} KB/s`;
+      return `${Math.round(bytesPerSecond)} B/s`;
     },
 
     restartToInstall() {

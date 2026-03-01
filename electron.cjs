@@ -9,7 +9,7 @@ const { autoUpdater, AppUpdater } = require('electron-updater')
 // setup the titlebar main process
 // setupTitlebar();
 
-autoUpdater.autoDownload = true;
+autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
 
 function showNotification (title, body) {
@@ -90,8 +90,13 @@ app.whenReady().then(() => {
   autoUpdater.on('update-not-available', () => {
     sendToRenderer('update-not-available');
   });
-  autoUpdater.on('download-progress', () => {
-    sendToRenderer('update-downloading');
+  autoUpdater.on('download-progress', (progress) => {
+    sendToRenderer('update-downloading', {
+      percent: progress.percent,
+      transferred: progress.transferred,
+      total: progress.total,
+      bytesPerSecond: progress.bytesPerSecond
+    });
   });
   autoUpdater.on('update-downloaded', (info) => {
     sendToRenderer('update-downloaded', { version: info.version });
@@ -102,7 +107,7 @@ app.whenReady().then(() => {
 
   mainWindow.webContents.once('did-finish-load', () => {
     if (!isDev) {
-      autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.checkForUpdates();
     }
   });
 
@@ -113,6 +118,17 @@ app.whenReady().then(() => {
     }
     autoUpdater.checkForUpdates();
     return { ok: true };
+  });
+
+  ipcMain.handle('download-update', async () => {
+    if (isDev) return { ok: false, error: 'Updates not available in development' };
+    try {
+      await autoUpdater.downloadUpdate();
+      return { ok: true };
+    } catch (err) {
+      sendToRenderer('update-error', { message: err.message });
+      return { ok: false, error: err.message };
+    }
   });
 
   ipcMain.handle('quit-and-install', () => {

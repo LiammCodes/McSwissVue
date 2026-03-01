@@ -53,6 +53,7 @@ export const useAppStore = defineStore({
     updateInfo: null as { version: string } | null,
     updateStatus: 'idle' as 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error',
     updateError: null as string | null,
+    downloadProgress: null as { percent: number; transferred: number; total: number; bytesPerSecond: number } | null,
   }),
   getters: {
     themeType(): 'dark' | 'light' {
@@ -120,6 +121,10 @@ export const useAppStore = defineStore({
         this.updateAvailable = false;
         this.updateInfo = null;
       }
+      if (status !== 'downloading') this.downloadProgress = null;
+    },
+    setDownloadProgress(progress: { percent: number; transferred: number; total: number; bytesPerSecond: number } | null) {
+      this.downloadProgress = progress;
     },
     setUpdateDownloaded(version: string) {
       this.updateStatus = 'downloaded';

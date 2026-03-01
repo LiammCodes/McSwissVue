@@ -57,7 +57,7 @@ export default defineComponent({
       ipcRenderer.on('update-available', (_event: Event, info: { version: string }) => {
         this.appStore.setUpdateAvailable(true, { version: info.version });
         this.toggleToast({
-          message: `Update available: v${info.version}. It will install when you quit the app.`,
+          message: `Update available: v${info.version}. Go to Settings to install.`,
           kind: 'alert-info',
           timeout: 6000
         });
@@ -69,8 +69,9 @@ export default defineComponent({
           this.toggleToast({ message: 'You’re on the latest version.', kind: 'alert-success', timeout: 3000 });
         }
       });
-      ipcRenderer.on('update-downloading', () => {
+      ipcRenderer.on('update-downloading', (_event: Event, progress: { percent: number; transferred: number; total: number; bytesPerSecond: number }) => {
         this.appStore.setUpdateStatus('downloading');
+        this.appStore.setDownloadProgress(progress);
       });
       ipcRenderer.on('update-downloaded', (_event: Event, info: { version: string }) => {
         this.appStore.setUpdateDownloaded(info.version);
