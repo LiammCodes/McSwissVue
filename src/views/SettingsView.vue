@@ -161,11 +161,10 @@ export default defineComponent({
   emits: ['toggle-toast'],
   setup() {
     const appStore = useAppStore();
-    const aws = require('aws-sdk');
     const electron = require('electron');
     const ipcRenderer = require('electron').ipcRenderer;
     const os = require('os');
-    return { appStore, aws, electron, ipcRenderer, os }
+    return { appStore, electron, ipcRenderer, os }
   },
   data() {
     return {
@@ -207,15 +206,18 @@ export default defineComponent({
 
     async testAwsConnection() {
       this.awsTestLoading = true;
-      this.aws.config.update({
-        accessKeyId: this.s3Access as string,
-        secretAccessKey: this.s3Secret as string
+
+      const { S3Client, HeadBucketCommand } = await import('@aws-sdk/client-s3');
+      const client = new S3Client({
+        region: 'us-east-1',
+        credentials: {
+          accessKeyId: this.s3Access as string,
+          secretAccessKey: this.s3Secret as string,
+        },
       });
 
-      const s3 = new this.aws.S3();
-
       try {
-        await s3.headBucket({ Bucket: this.s3Bucket }).promise();
+        await client.send(new HeadBucketCommand({ Bucket: this.s3Bucket }));
         this.awsTestPass = true;
       } catch (err) {
         this.awsTestPass = false;

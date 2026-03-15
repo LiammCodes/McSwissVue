@@ -106,12 +106,11 @@ export default defineComponent({
   emits: ['toggle-toast'],
   setup() {
     const appStore = useAppStore();
-    const aws = require('aws-sdk');
     const ipcRenderer = require('electron').ipcRenderer;
     const fs = require('fs');
     const path = require('path');
 
-    return { appStore, aws, fs, ipcRenderer, path };
+    return { appStore, fs, ipcRenderer, path };
   },
   data() {
     return {
@@ -313,40 +312,62 @@ export default defineComponent({
 
     async uploadVttToS3(vttContent: string, index: number, filename: string): Promise<void> {
       await this.updateS3Creds();
-      const s3 = new this.aws.S3();
-      const params = {
-        Bucket: this.appStore.s3BucketName as string,
-        Key: filename,
-        Body: Buffer.from(vttContent, 'utf-8'),
-        ContentType: 'text/vtt',
-      };
-      await s3.upload(params).promise();
+      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+      const client = new S3Client({
+        region: this.s3Region || 'us-east-1',
+        credentials: {
+          accessKeyId: this.appStore.s3AccessKey as string,
+          secretAccessKey: this.appStore.s3SecretKey as string,
+        },
+      });
+      await client.send(
+        new PutObjectCommand({
+          Bucket: this.appStore.s3BucketName as string,
+          Key: filename,
+          Body: Buffer.from(vttContent, 'utf-8'),
+          ContentType: 'text/vtt',
+        })
+      );
     },
 
     async updateS3Creds() {
-      this.aws.config.update({
-        accessKeyId: this.appStore.s3AccessKey as string,
-        secretAccessKey: this.appStore.s3SecretKey as string,
-        apiVersion: 'latest',
+      const { S3Client, GetBucketLocationCommand } = await import('@aws-sdk/client-s3');
+      const client = new S3Client({
+        region: 'us-east-1',
+        credentials: {
+          accessKeyId: this.appStore.s3AccessKey as string,
+          secretAccessKey: this.appStore.s3SecretKey as string,
+        },
       });
-      const s3 = new this.aws.S3({ region: 'us-east-1' });
       try {
-        const loc = await s3.getBucketLocation({ Bucket: this.appStore.s3BucketName as string }).promise();
-        const region = loc.LocationConstraint || 'us-east-1';
-        this.aws.config.update({ region });
+        const response = await client.send(
+          new GetBucketLocationCommand({ Bucket: this.appStore.s3BucketName as string })
+        );
+        const loc = response.LocationConstraint;
+        this.s3Region =
+          !loc || loc === ''
+            ? 'us-east-1'
+            : loc === 'EU'
+              ? 'eu-west-1'
+              : (loc as string);
       } catch {
-        this.aws.config.update({ region: 'us-east-1' });
+        this.s3Region = 'us-east-1';
       }
     },
 
     async checkS3Connection(): Promise<boolean> {
       try {
-        this.aws.config.update({
-          accessKeyId: this.appStore.s3AccessKey,
-          secretAccessKey: this.appStore.s3SecretKey,
+        const { S3Client, HeadBucketCommand } = await import('@aws-sdk/client-s3');
+        const client = new S3Client({
+          region: 'us-east-1',
+          credentials: {
+            accessKeyId: this.appStore.s3AccessKey as string,
+            secretAccessKey: this.appStore.s3SecretKey as string,
+          },
         });
-        const s3 = new this.aws.S3();
-        await s3.headBucket({ Bucket: this.appStore.s3BucketName as string }).promise();
+        await client.send(
+          new HeadBucketCommand({ Bucket: this.appStore.s3BucketName as string })
+        );
         return true;
       } catch {
         this.$emit('toggle-toast', {
