@@ -1,8 +1,8 @@
 <template>
   <Transition name="slide-fade" class="pt-6 z-50">
-    <div v-if="showToast" class="toast toast-top toast-right">
-      <div :class="['alert', 'max-w-md', toast.kind, 'flex justify-between items-center toast-content']">
-        <span>{{ toast.message }}</span>
+    <div v-if="showToast" class="toast toast-top toast-right w-full max-w-full">
+      <div :class="['alert', 'min-w-md', 'max-w-full', toast.kind, 'flex justify-between items-center toast-content']">
+        <span class="toast-message break-words flex-1 min-w-0">{{ toast.message }}</span>
         <button class="close-button" @click="$emit('close')">
           <XMarkIcon class="h-5 w-5"/>
         </button>
@@ -66,5 +66,11 @@ export default defineComponent({
 }
 .toast-content {
   pointer-events: auto;
+  width: fit-content;
+}
+.toast-message {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
 }
 </style>

@@ -3,6 +3,7 @@
     <mc-file-upload 
       v-if="showFileUpload" 
       action="convert" 
+      hint="Video: .mp4, .mov, .m4v"
       @files-uploaded="handleFilesUploaded" 
       @bad-extension="handleBadExtension"
     />

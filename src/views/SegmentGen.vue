@@ -3,6 +3,7 @@
     <mc-file-upload 
       v-if="showFileUpload" 
       action="create segments for" 
+      hint="Video: .mp4, .mov, .m4v"
       :multiple-files="false" 
       @files-uploaded="handleFilesUploaded" 
       @bad-extension="handleBadExtension"
