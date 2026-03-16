@@ -1,44 +1,81 @@
 <template>
   <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
     <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-    <div class="flex-1 min-h-0 grid grid-cols-8 gap-2 overflow-hidden" style="overflow-x: hidden;">
-      <mc-file-upload
-        v-if="showFileUpload"
-        class="col-span-4 h-full"
-        action="create segments for"
-        hint="Video: .mp4, .mov, .m4v"
-        :multiple-files="false"
-        embedded
-        @files-uploaded="handleFilesUploaded"
-        @bad-extension="handleBadExtension"
-      />
+    <!-- Hidden grid used only to build FileData (metadata) for the single file -->
+    <div v-if="!showFileUpload && files.length > 0" class="hidden w-0 h-0 overflow-hidden">
       <mc-file-grid
-        v-else
-        class="col-span-4 h-full"
+        :key="files[0]?.name ?? 'single'"
+        ref="segmentFileGrid"
         :files="files"
         :processing="generating"
-        @file-selected="handleFileSelected"
         @files-loaded="handleFilesLoaded"
         @bad-extension="handleBadExtension"
-      >
-        <template v-slot:spacing>
-          <div class="h-full"></div>
+      />
+    </div>
+    <div class="flex-1 min-h-0 flex gap-2 overflow-hidden min-w-0">
+      <!-- Left: upload zone OR player + metadata -->
+      <div class="flex-1 min-w-0 flex flex-col gap-2 overflow-hidden">
+        <mc-file-upload
+          v-if="showFileUpload"
+          class="flex-1 h-full"
+          action="create segments for"
+          hint="Video: .mp4, .mov, .m4v"
+          :multiple-files="false"
+          embedded
+          @files-uploaded="handleFilesUploaded"
+          @bad-extension="handleBadExtension"
+        />
+        <template v-else>
+          <!-- Video player -->
+          <div class="flex-1 min-h-0 bg-base-200 rounded-xl overflow-hidden flex flex-col">
+            <div v-if="filesLoading" class="flex-1 flex items-center justify-center">
+              <span class="loading loading-spinner text-primary loading-lg"></span>
+            </div>
+            <video
+              v-else-if="videoSrc"
+              :src="videoSrc"
+              controls
+              class="w-full h-full object-contain bg-black"
+              playsinline
+            />
+            <div v-else class="flex-1 flex items-center justify-center text-base-content/50">
+              No video
+            </div>
+          </div>
+          <!-- Metadata below player -->
+          <div class="shrink-0 bg-base-200 rounded-xl p-3">
+            <div class="flex items-center justify-between gap-2 mb-2 min-w-0">
+              <p class="text-base font-bold truncate min-w-0" style="word-break: break-all;">{{ segmentFileName }}</p>
+              <label class="btn btn-ghost btn-sm shrink-0">browse
+                <input type="file" class="hidden" accept=".mp4,.mov,.m4v" @change="handleChangeFile" />
+              </label>
+            </div>
+            <div class="bg-base-100 rounded-md text-sm p-2 space-y-3">
+              <p>Duration: <span class="float-right">{{ segmentFileDuration }}</span></p>
+              <p>Size: <span class="float-right">{{ segmentFileSize }}</span></p>
+              <p>Bitrate: <span class="float-right">{{ segmentFileBitrate }}</span></p>
+              <p>Resolution: <span class="float-right">{{ segmentFileResolution }}</span></p>
+            </div>
+          </div>
         </template>
-      </mc-file-grid>
-      <div class="col-span-2 flex flex-col min-h-0 overflow-hidden rounded-md">
-        <div class="flex-1 min-h-0 overflow-y-auto space-y-2">
+      </div>
+      <!-- Right: segments column (only when a file is loaded) -->
+      <div v-if="files.length > 0" class="w-72 shrink-0 flex flex-col min-h-0 overflow-hidden rounded-md bg-base-200/50">
+        <div class="shrink-0 p-2 border-b border-base-300">
+          <button type="button" class="btn btn-ghost btn-sm w-full" @click="clearSegments">clear</button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto space-y-2 p-2">
           <mc-segment
             v-for="segment in segments"
             :key="segment.id"
             :modelValue="segment"
             @delete-segment="deleteSegment(segment.id)"
           />
-          <button v-if="files.length > 0" class="btn btn-outline btn-primary w-full" @click="addSegment">
+          <button class="btn btn-outline btn-primary w-full" @click="addSegment">
             <plus-circle-icon color="primary" class="h-6 w-6"/>
           </button>
         </div>
       </div>
-      <mc-meta-data-column class="col-span-2 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
     </div>
     <mc-data-intake class="shrink-0">
       <template v-slot:data-intake>
@@ -106,7 +143,7 @@ import { getFilePath } from '../utils/electronFilePath';
 
 export default defineComponent({
   name: 'SegmentGen',
-  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McSegment, PlusCircleIcon },
+  components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McSegment, PlusCircleIcon },
   emits: ['toggle-toast'],
   setup() {
     const appRootDir = require('app-root-dir').get();
@@ -119,7 +156,8 @@ export default defineComponent({
     const dialog = require('electron').dialog;
     const path = require('path');
     const fs = require('fs');
-    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
+    const { pathToFileURL } = require('url');
+    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, pathToFileURL, ffmpeg, ffprobe, spawn };
   },
   data() {
     return {
@@ -129,6 +167,7 @@ export default defineComponent({
         startTime: '00:00:00',
         endTime: '00:00:00'
       } as Segment,
+      fileObjects: [] as FileData[],
       files: ref<File[]>([]),
       filesLoading: true as boolean,
       generating: false as boolean,
@@ -181,7 +220,33 @@ export default defineComponent({
     progressStr() {
       const count = this.segments.length;
       return count > 0 ? (this.currentProgress + this.totalProgress) / count : 0;
-    }
+    },
+    videoSrc(): string {
+      if (!this.selectedFile?.file) return '';
+      const p = getFilePath(this.selectedFile.file);
+      return p ? this.pathToFileURL(p).toString() : '';
+    },
+    segmentFileName(): string {
+      return this.selectedFile?.file?.name ?? '';
+    },
+    segmentFileDuration(): string {
+      return this.selectedFile?.duration ?? '—';
+    },
+    segmentFileSize(): string {
+      if (this.selectedFile?.file?.size != null) {
+        return this.formattedFileSize(+this.selectedFile.file.size);
+      }
+      return '—';
+    },
+    segmentFileBitrate(): string {
+      return this.selectedFile?.bitrate ?? '—';
+    },
+    segmentFileResolution(): string {
+      if (this.selectedFile && this.selectedFile.width > 0 && this.selectedFile.height > 0) {
+        return `${this.selectedFile.width} × ${this.selectedFile.height}`;
+      }
+      return '—';
+    },
   },
   methods: {
     fileAlreadyExists,
@@ -233,27 +298,59 @@ export default defineComponent({
     },
 
     handleFilesUploaded(uploadedFiles: File[]) {
-      // ensures file data is available for metadata
       process.nextTick(() => {
         this.files.push(...uploadedFiles);
         this.showFileUpload = false;
-        this.addSegment()
+        this.filesLoading = true;
+        this.addSegment();
       });
     },
 
     handleFilesLoaded(fileObjects: object[]) {
       this.filesLoading = false;
       const list = fileObjects as FileData[];
+      this.fileObjects = list;
       this.files = list.map((fo) => fo.file);
       if (list.length === 0) {
         this.showFileUpload = true;
+        this.selectedFile = {} as FileData;
       } else {
+        this.selectedFile = list[0];
         this.shortestDuration = getShortestVideoDuration(fileObjects);
       }
     },
 
-    handleFileSelected(file: any) {
-      this.selectedFile = file;
+    formattedFileSize(bytes: number): string {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    },
+
+    handleChangeFile(event: Event) {
+      const input = event.target as HTMLInputElement;
+      const selected = input.files;
+      input.value = '';
+      if (!selected?.length) return;
+      const file = selected[0];
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const accepted = ['.mp4', '.mov', '.m4v'];
+      if (!accepted.includes(ext ? '.' + ext : '')) {
+        this.$emit('toggle-toast', {
+          message: 'Only .mp4, .mov, and .m4v files are allowed',
+          kind: 'alert-error',
+          timeout: 3000,
+        });
+        return;
+      }
+      this.files = [file];
+      this.segments = [];
+      this.filesLoading = true;
+      this.selectedFile = {} as FileData;
+    },
+
+    clearSegments() {
+      this.segments = [];
     },
 
     setSuccessToastMsg(numSegments: number) {
