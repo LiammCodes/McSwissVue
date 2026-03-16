@@ -1,45 +1,47 @@
 <template>
   <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-    <mc-file-upload 
-      v-if="showFileUpload" 
-      action="create segments for" 
-      hint="Video: .mp4, .mov, .m4v"
-      :multiple-files="false" 
-      @files-uploaded="handleFilesUploaded" 
-      @bad-extension="handleBadExtension"
-    />
-    <template v-else>
-      <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-        <div class="flex-1 min-h-0 grid grid-cols-8 gap-2 overflow-hidden" style="overflow-x: hidden;">
-          <mc-file-grid 
-            class="col-span-4 h-full" 
-            :files="files" 
-            :processing="generating"
-            @file-selected="handleFileSelected" 
-            @files-loaded="handleFilesLoaded"
-          >
-            <template v-slot:spacing>
-              <div class="h-full"></div>
-            </template>
-          </mc-file-grid>
-          <div class="col-span-2 flex flex-col min-h-0 overflow-hidden rounded-md">
-            <div class="flex-1 min-h-0 overflow-y-auto space-y-2">
-              <mc-segment 
-                v-for="segment in segments"
-                :key="segment.id"
-                :modelValue="segment"
-                @delete-segment="deleteSegment(segment.id)"
-              />
-              <button class="btn btn-outline btn-primary w-full" @click="addSegment">
-                <plus-circle-icon color="primary" class="h-6 w-6"/>
-              </button>
-            </div>
-          </div>
-          <mc-meta-data-column class="col-span-2 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
+    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
+    <div class="flex-1 min-h-0 grid grid-cols-8 gap-2 overflow-hidden" style="overflow-x: hidden;">
+      <mc-file-upload
+        v-if="showFileUpload"
+        class="col-span-4 h-full"
+        action="create segments for"
+        hint="Video: .mp4, .mov, .m4v"
+        :multiple-files="false"
+        embedded
+        @files-uploaded="handleFilesUploaded"
+        @bad-extension="handleBadExtension"
+      />
+      <mc-file-grid
+        v-else
+        class="col-span-4 h-full"
+        :files="files"
+        :processing="generating"
+        @file-selected="handleFileSelected"
+        @files-loaded="handleFilesLoaded"
+        @bad-extension="handleBadExtension"
+      >
+        <template v-slot:spacing>
+          <div class="h-full"></div>
+        </template>
+      </mc-file-grid>
+      <div class="col-span-2 flex flex-col min-h-0 overflow-hidden rounded-md">
+        <div class="flex-1 min-h-0 overflow-y-auto space-y-2">
+          <mc-segment
+            v-for="segment in segments"
+            :key="segment.id"
+            :modelValue="segment"
+            @delete-segment="deleteSegment(segment.id)"
+          />
+          <button v-if="files.length > 0" class="btn btn-outline btn-primary w-full" @click="addSegment">
+            <plus-circle-icon color="primary" class="h-6 w-6"/>
+          </button>
         </div>
-        <mc-data-intake class="shrink-0">
-    <template v-slot:data-intake>
+      </div>
+      <mc-meta-data-column class="col-span-2 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
+    </div>
+    <mc-data-intake class="shrink-0">
+      <template v-slot:data-intake>
       <div v-if="!generating" class="flex justify-between items-center gap-10">
         <div class="space-y-2 flex-grow max-w-xl">
           <div class="flex justify-end items-center space-x-2">
@@ -77,10 +79,8 @@
           <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progressStr + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
-    </template>
-        </mc-data-intake>
-      </div>
-    </template>
+      </template>
+    </mc-data-intake>
   </div>
 </template>
 
@@ -226,9 +226,9 @@ export default defineComponent({
     handleSuffixSelect(suffix: SelectOption) {
       this.selectedSuffix = suffix;
       this.appStore.setSegSuffix(suffix.value);
+      if (!this.files.length || !this.files[0]) return;
       this.segments.forEach((segment: Segment) => {
-        const fileSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(segment.id + 97) : segment.id + 1;
-        segment.name = this.removeExtension(this.files[0].name) + "_" + fileSuffix + this.outputFileExtension;
+        segment.name = this.buildSegmentOutputFilename(segment);
       });
     },
 
@@ -237,17 +237,19 @@ export default defineComponent({
       process.nextTick(() => {
         this.files.push(...uploadedFiles);
         this.showFileUpload = false;
-        this.selectedFile.file = this.files[0];
         this.addSegment()
       });
     },
 
     handleFilesLoaded(fileObjects: object[]) {
-      this.filesLoading = false
-      
-      // get shortest video durration
-      // (this will set the maximum allowed preview durration)
-      this.shortestDuration = getShortestVideoDuration(fileObjects);
+      this.filesLoading = false;
+      const list = fileObjects as FileData[];
+      this.files = list.map((fo) => fo.file);
+      if (list.length === 0) {
+        this.showFileUpload = true;
+      } else {
+        this.shortestDuration = getShortestVideoDuration(fileObjects);
+      }
     },
 
     handleFileSelected(file: any) {
@@ -264,22 +266,26 @@ export default defineComponent({
     },
 
     async setOutputPath() {
-      await this.ipcRenderer.invoke('dialog').then((result: string) => {
+      const result = await this.ipcRenderer.invoke('dialog');
+      if (result != null) {
         this.outputFilePath = result;
         this.appStore.setSegOutputPath(result);
-      })
+      }
     },
 
     addSegment() {
-      // set new id for segment
-      const suffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(this.segments.length+97) : this.segments.length + 1;
-      
-      this.segments.push({
-        name: this.removeExtension(this.files[0].name) + "_" + suffix + this.outputFileExtension,
+      if (!this.files.length || !this.files[0]) {
+        return;
+      }
+      const id = this.segments.length;
+      const segment: Segment = {
+        name: '', // set below via helper
         startTime: '00:00:00',
         endTime: '00:00:00',
-        id: this.segments.length
-      });
+        id
+      };
+      segment.name = this.buildSegmentOutputFilename(segment);
+      this.segments.push(segment);
     },
 
     deleteSegment(id: number) {
@@ -311,14 +317,28 @@ export default defineComponent({
     },
 
     anySegmentExists(): boolean {
+      if (!this.files.length || !this.files[0]) {
+        return false;
+      }
       for (const segment of this.segments) {
-        const newFile = removeExtension(segment.name) + this.outputFileExtension;
-        const newFilePath = this.path.join(this.outputFilePath, newFile);
+        const newFilePath = this.buildSegmentOutputPath(segment);
         if (fileAlreadyExists(newFilePath)) {
           return true;
         }
       }
       return false;
+    },
+
+    buildSegmentOutputFilename(segment: Segment): string {
+      const baseName = this.removeExtension(this.files[0].name);
+      const suffix = this.selectedSuffix.value === "letters"
+        ? String.fromCharCode(segment.id + 97)
+        : segment.id + 1;
+      return `${baseName}_${suffix}${this.outputFileExtension}`;
+    },
+
+    buildSegmentOutputPath(segment: Segment): string {
+      return this.path.join(this.outputFilePath, this.buildSegmentOutputFilename(segment));
     },
 
     async generateSegments() {
@@ -343,7 +363,6 @@ export default defineComponent({
           if (currentSegmentIndex < this.segments.length) {
             this.currentProgress = 0;
             const segment = this.segments[currentSegmentIndex];
-            const segmentSuffix = this.selectedSuffix.value === "letters" ? String.fromCharCode(currentSegmentIndex + 97) : currentSegmentIndex + 1; 
             const ffmpegCommand = [
               // @ts-ignore
               '-i', getFilePath(this.files[0]),
@@ -351,7 +370,7 @@ export default defineComponent({
               '-to', segment.endTime,
               '-b:v', '3000k',
               '-progress', 'pipe:1',
-              this.path.join(this.outputFilePath, this.removeExtension(this.files[0].name) + "_" + segmentSuffix + this.outputFileExtension)
+              this.buildSegmentOutputPath(segment)
             ];
 
             this.generating = true;
@@ -377,11 +396,23 @@ export default defineComponent({
               childProcess.on('error', (err: any) => {
                 this.totalProgress += 100;
                 currentSegmentIndex++;
+                this.toast = {
+                  message: 'Segment generation failed: ' + (err?.message || 'FFmpeg error'),
+                  kind: 'alert-error',
+                  timeout: 5000
+                };
+                this.$emit('toggle-toast', this.toast);
                 processNextSegment(); // Process the next segment recursively
               });
             } else {
               console.error('Failed to spawn FFMpeg process.');
               currentSegmentIndex++;
+              this.toast = {
+                message: 'Segment generation failed: could not start FFmpeg.',
+                kind: 'alert-error',
+                timeout: 5000
+              };
+              this.$emit('toggle-toast', this.toast);
               processNextSegment(); // Process the next segment recursively
             }
           } else {

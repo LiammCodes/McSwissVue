@@ -1,11 +1,13 @@
 <template>
   <div
-    class="h-full w-full flex items-start justify-center mt-20"
+    class="h-full w-full flex justify-center overflow-auto"
+    :class="embedded ? 'items-center' : 'items-start mt-20'"
     @dragover.prevent="handleDragOver"
     @drop.prevent="handleDrop"
   >
     <label
-      class="flex flex-col justify-center items-center w-3/4 min-h-[280px] px-4 transition bg-base-100 border-2 border-base-content border-dashed rounded-box appearance-none cursor-pointer hover:border-primary focus:outline-none"
+      class="flex flex-col justify-center items-center px-4 transition bg-base-100 border-2 border-base-content border-dashed rounded-box appearance-none cursor-pointer hover:border-primary focus:outline-none shrink-0"
+      :class="embedded ? 'w-3/4 min-h-[200px]' : 'w-3/4 min-h-[280px]'"
     >
       <span class="flex flex-col items-center space-y-2 text-center">
         <svg
@@ -62,47 +64,52 @@ export default defineComponent({
       required: false,
       default: true,
     },
+    embedded: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  computed: {
+    acceptedExtensions(): string[] {
+      return (this.accept || '')
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s && s.startsWith('.'));
+    },
   },
   methods: {
     handleDragOver(event: DragEvent) {
       event.preventDefault();
     },
-    handleDrop(event: DragEvent) {
-      event.preventDefault();
-      let files: File[];
-      const acceptedExtensions = ['.mp4', '.mov', '.m4v'];
-      let badExtension = false;
-
-      if (this.multipleFiles){
-        files = Array.from(event.dataTransfer?.files || []);
+    fileHasAcceptedExtension(file: File): boolean {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      const withDot = ext ? '.' + ext : '';
+      return this.acceptedExtensions.length > 0 && this.acceptedExtensions.includes(withDot);
+    },
+    validateAndEmitFiles(files: File[]) {
+      const bad = files.some((f) => !this.fileHasAcceptedExtension(f));
+      if (bad) {
+        this.$emit('bad-extension');
       } else {
-        files = event.dataTransfer?.files ? [event.dataTransfer.files[0]] : [];
-      }
-
-      // check the extension of the file
-      files.forEach((file: File) => {
-        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-        if (!acceptedExtensions.includes('.' + fileExtension)) {
-          badExtension = true;
-          return;
-        }
-      })
-
-      if (badExtension) {
-        // Notify the user that the file type is not accepted
-        this.$emit('bad-extension')
-      } else {
-        this.$emit("files-uploaded", files);
+        this.$emit('files-uploaded', files);
       }
     },
-  
+    handleDrop(event: DragEvent) {
+      event.preventDefault();
+      const raw = event.dataTransfer?.files;
+      const files = this.multipleFiles
+        ? Array.from(raw || [])
+        : raw && raw.length ? [raw[0]] : [];
+      this.validateAndEmitFiles(files);
+    },
     handleFileUpload(event: Event) {
       const input = event.target as HTMLInputElement;
       if (input.files) {
         const files = Array.from(input.files);
-        this.$emit("files-uploaded", files);
+        this.validateAndEmitFiles(files);
       }
+      input.value = '';
     },
-  }
+  },
 })
 </script>

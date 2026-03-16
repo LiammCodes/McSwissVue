@@ -1,31 +1,33 @@
 <template>
   <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-    <mc-file-upload 
-      v-if="showFileUpload" 
-      action="convert" 
-      hint="Video: .mp4, .mov, .m4v"
-      @files-uploaded="handleFilesUploaded" 
-      @bad-extension="handleBadExtension"
-    />
-    <template v-else>
-      <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-        <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
-          <mc-file-grid 
-            class="col-span-3 h-full" 
-            :files="files" 
-            :processing="converting"
-            @file-selected="handleFileSelected" 
-            @files-loaded="handleFilesLoaded"
-          >
-            <template v-slot:spacing>
-              <div class="h-full"></div>
-            </template>
-          </mc-file-grid>
-          <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
-        </div>
-        <mc-data-intake class="shrink-0">
-    <template v-slot:data-intake>
+    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
+    <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
+      <mc-file-upload
+        v-if="showFileUpload"
+        class="col-span-3 h-full"
+        action="convert"
+        hint="Video: .mp4, .mov, .m4v"
+        embedded
+        @files-uploaded="handleFilesUploaded"
+        @bad-extension="handleBadExtension"
+      />
+      <mc-file-grid
+        v-else
+        class="col-span-3 h-full"
+        :files="files"
+        :processing="converting"
+        @file-selected="handleFileSelected"
+        @files-loaded="handleFilesLoaded"
+        @bad-extension="handleBadExtension"
+      >
+        <template v-slot:spacing>
+          <div class="h-full"></div>
+        </template>
+      </mc-file-grid>
+      <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
+    </div>
+    <mc-data-intake class="shrink-0">
+      <template v-slot:data-intake>
       <div v-if="!converting" class="flex justify-between items-center gap-10">
         <div class="space-y-2">
           <div class="flex items-center gap-2">
@@ -106,6 +108,9 @@
                 <p>Estimated bitrate: <strong>{{ estimatedBitrateKbps }} kbit/s</strong></p>
                 <p v-if="estimatedFileSizeMB !== null">Estimated file size: <strong>{{ estimatedFileSizeMB }} MB</strong></p>
               </div>
+              <div v-else class="text-xs text-base-content/60">
+                Estimates are unavailable for the current file or bitrate. Duration and bitrate must be valid.
+              </div>
             </div>
           </div>
         </div>
@@ -122,10 +127,8 @@
           <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progressForDisplay + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
-    </template>
-        </mc-data-intake>
-      </div>
-    </template>
+      </template>
+    </mc-data-intake>
   </div>
 </template>
 
@@ -276,11 +279,9 @@ export default defineComponent({
       })
     },
     handleFilesUploaded(uploadedFiles: File[]) {
-      console.log(this.$refs);
       process.nextTick(() => {
         this.files.push(...uploadedFiles);
         this.showFileUpload = false;
-        this.selectedFile.file = this.files[0];
       });
       
     },
@@ -346,17 +347,23 @@ export default defineComponent({
 
     handleFilesLoaded(fileObjects: FileData[]) {
       if (fileObjects) {
-        this.filesLoading = false
+        this.filesLoading = false;
         this.fileObjects = fileObjects;
-        this.setSuccessToastMsg(fileObjects.length)
+        this.files = fileObjects.map((fo) => fo.file);
+        if (fileObjects.length === 0) {
+          this.showFileUpload = true;
+        } else {
+          this.setSuccessToastMsg(fileObjects.length);
+        }
       }
     },
 
     async setOutputPath() {
-      await this.ipcRenderer.invoke('dialog').then((result: string) => {
+      const result = await this.ipcRenderer.invoke('dialog');
+      if (result != null) {
         this.outputFilePath = result;
         this.appStore.setConOutputPath(result);
-      })
+      }
     },
 
     errorsFlagged(): boolean {
@@ -605,7 +612,11 @@ export default defineComponent({
         this.converting = false;
         this.progress = 0;
         this.progressDisplay = 0;
-        this.toast = { message: 'Conversion failed.', kind: 'alert-error', timeout: 5000 };
+        this.toast = {
+          message: 'Conversion failed: ' + (err as Error)?.message || 'unknown error',
+          kind: 'alert-error',
+          timeout: 5000
+        };
         this.$emit('toggle-toast', this.toast);
         return;
       }

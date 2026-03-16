@@ -1,31 +1,33 @@
 <template>
   <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-    <mc-file-upload 
-      v-if="showFileUpload" 
-      action="create previews for" 
-      hint="Video: .mp4, .mov, .m4v"
-      @files-uploaded="handleFilesUploaded" 
-      @bad-extension="handleBadExtension"
-    />
-    <template v-else>
-      <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-        <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
-          <mc-file-grid 
-            class="col-span-3 h-full" 
-            :files="files" 
-            :processing="generating"
-            @file-selected="handleFileSelected" 
-            @files-loaded="handleFilesLoaded"
-          >
-            <template v-slot:spacing>
-              <div class="h-full"></div>
-            </template>
-          </mc-file-grid>
-          <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
-        </div>
-        <mc-data-intake class="shrink-0">
-    <template v-slot:data-intake>
+    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
+    <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
+      <mc-file-upload
+        v-if="showFileUpload"
+        class="col-span-3 h-full"
+        action="create previews for"
+        hint="Video: .mp4, .mov, .m4v"
+        embedded
+        @files-uploaded="handleFilesUploaded"
+        @bad-extension="handleBadExtension"
+      />
+      <mc-file-grid
+        v-else
+        class="col-span-3 h-full"
+        :files="files"
+        :processing="generating"
+        @file-selected="handleFileSelected"
+        @files-loaded="handleFilesLoaded"
+        @bad-extension="handleBadExtension"
+      >
+        <template v-slot:spacing>
+          <div class="h-full"></div>
+        </template>
+      </mc-file-grid>
+      <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
+    </div>
+    <mc-data-intake class="shrink-0">
+      <template v-slot:data-intake>
       <div v-if="!generating" class="flex justify-between items-center gap-10">
         <div class="space-y-2">
           <div class="flex justify-end items-center space-x-2">
@@ -60,10 +62,8 @@
           <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progressStr + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
-    </template>
-        </mc-data-intake>
-      </div>
-    </template>
+      </template>
+    </mc-data-intake>
   </div>
 </template>
 
@@ -162,7 +162,6 @@ export default defineComponent({
       process.nextTick(() => {
         this.files.push(...uploadedFiles);
         this.showFileUpload = false;
-        this.selectedFile.file = this.files[0];
       });
     },
 
@@ -190,19 +189,23 @@ export default defineComponent({
     },
 
     handleFilesLoaded(fileObjects: object[]) {
-      this.filesLoading = false
-      this.setSuccessToastMsg(fileObjects.length)
-      
-      // get shortest video durration
-      // (this will set the maximum allowed preview durration)
-      this.shortestDuration = getShortestVideoDuration(fileObjects);
+      this.filesLoading = false;
+      const list = fileObjects as FileData[];
+      this.files = list.map((fo) => fo.file);
+      if (list.length === 0) {
+        this.showFileUpload = true;
+      } else {
+        this.setSuccessToastMsg(list.length);
+        this.shortestDuration = getShortestVideoDuration(fileObjects);
+      }
     },
 
     async setOutputPath() {
-      await this.ipcRenderer.invoke('dialog').then((result: string) => {
+      const result = await this.ipcRenderer.invoke('dialog');
+      if (result != null) {
         this.outputFilePath = result;
         this.appStore.setPrevOutputPath(result);
-      })
+      }
     },
 
     errorsFlagged(): boolean {
@@ -332,11 +335,23 @@ export default defineComponent({
               childProcess.on('error', (err: any) => {
                 this.totalProgress += 100;
                 currentFileIndex++;
-                processNextFile(); // Process the next file recursively
+                this.toast = {
+                  message: 'Preview generation failed: ' + (err?.message || 'FFmpeg error'),
+                  kind: 'alert-error',
+                  timeout: 5000
+                };
+                this.$emit('toggle-toast', this.toast);
+                processNextFile(); // Continue with remaining files
               });
             } else {
               console.error('Failed to spawn FFMpeg process.');
               currentFileIndex++;
+              this.toast = {
+                message: 'Preview generation failed: could not start FFmpeg.',
+                kind: 'alert-error',
+                timeout: 5000
+              };
+              this.$emit('toggle-toast', this.toast);
               processNextFile(); // Process the next file recursively
             }
             this.currentProgress = 0;

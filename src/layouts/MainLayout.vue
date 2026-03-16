@@ -47,6 +47,14 @@ export default defineComponent({
     this.$router.push({ name: this.appStore.selectedView });
     this.setupUpdateListeners();
   },
+  beforeUnmount() {
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.removeAllListeners('update-available');
+    ipcRenderer.removeAllListeners('update-not-available');
+    ipcRenderer.removeAllListeners('update-downloading');
+    ipcRenderer.removeAllListeners('update-downloaded');
+    ipcRenderer.removeAllListeners('update-error');
+  },
   methods: {
     toggleToast(newToast: Toast): void {
       this.toast = newToast;

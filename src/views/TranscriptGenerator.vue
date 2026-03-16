@@ -1,30 +1,32 @@
 <template>
   <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-    <mc-file-upload 
-      v-if="showFileUpload" 
-      action="transcribe" 
-      hint="Video: .mp4, .mov, .m4v"
-      @files-uploaded="handleFilesUploaded" 
-      @bad-extension="handleBadExtension"
-    />
-    <template v-else>
-      <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
-        <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
-        <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
-          <mc-file-grid 
-            class="col-span-3 h-full" 
-            :files="files" 
-            :file-statuses="statuses" 
-            :list="true" 
-            :method="selectedMethod" 
-            :processing="transcribing"
-            @file-selected="handleFileSelected" 
-            @files-loaded="handleFilesLoaded"
-          />
-          <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
-        </div>
-        <mc-data-intake class="shrink-0">
-    <template v-slot:data-intake>
+    <mc-binary-modal :show-modal="showBinaryModal" @response="handleOverwriteResponse" />
+    <div class="flex-1 min-h-0 grid grid-cols-4 gap-2 overflow-hidden">
+      <mc-file-upload
+        v-if="showFileUpload"
+        class="col-span-3 h-full"
+        action="transcribe"
+        hint="Video: .mp4, .mov, .m4v"
+        embedded
+        @files-uploaded="handleFilesUploaded"
+        @bad-extension="handleBadExtension"
+      />
+      <mc-file-grid
+        v-else
+        class="col-span-3 h-full"
+        :files="files"
+        :file-statuses="statuses"
+        :list="true"
+        :method="selectedMethod"
+        :processing="transcribing"
+        @file-selected="handleFileSelected"
+        @files-loaded="handleFilesLoaded"
+        @bad-extension="handleBadExtension"
+      />
+      <mc-meta-data-column class="col-span-1 gap-2 bg-base-200 rounded-xl min-h-0" :files-loading="filesLoading" :selected-file="selectedFile" />
+    </div>
+    <mc-data-intake class="shrink-0">
+      <template v-slot:data-intake>
       <div v-if="!transcribing" class="flex justify-between items-center gap-10">
         <div class="flex justify-end items-center space-x-2">
           <div class="flex items-center w-full space-x-2">
@@ -82,10 +84,8 @@
           <div class="bg-primary h-2.5 rounded-full" :style="'width: ' + progress + '%; transition: width 0.3s ease-in-out;'"></div>
         </div>
       </div>
-    </template>
-        </mc-data-intake>
-      </div>
-    </template>
+      </template>
+    </mc-data-intake>
   </div>
 </template>
 
@@ -163,10 +163,10 @@ export default defineComponent({
   },
   computed: {
     progress(): number {
-      const denominator = this.selectedMethod.value === 'upload' ? 5 : 4;
       if (this.statuses.length === 0) return 0;
+      const stepsPerFile = this.selectedMethod.value === 'upload' ? 5 : 4;
       const sum = this.statuses.reduce((acc: number, s: Status) => acc + s.value, 0);
-      return (sum / this.statuses.length / denominator) * 100;
+      return (sum / this.statuses.length / stepsPerFile) * 100;
     },
     selectedLanguageLabel(): string {
       const opt = this.languageOptions.find((o) => o.value === this.selectedLanguage);
@@ -198,7 +198,6 @@ export default defineComponent({
       process.nextTick(() => {
         this.files.push(...uploadedFiles);
         this.showFileUpload = false;
-        this.selectedFile.file = this.files[0];
       });
     },
     handleFileSelected(file: any) {
@@ -246,15 +245,22 @@ export default defineComponent({
       if (fileObjects) {
         this.filesLoading = false;
         this.fileObjects = fileObjects;
-        this.resetStatuses();
-        this.setSuccessToastMsg(fileObjects.length);
+        this.files = fileObjects.map((fo) => fo.file);
+        if (fileObjects.length === 0) {
+          this.showFileUpload = true;
+        } else {
+          this.resetStatuses();
+          this.setSuccessToastMsg(fileObjects.length);
+        }
       }
     },
 
     async setOutputPath() {
       const result = await this.ipcRenderer.invoke('dialog');
-      this.outputFilePath = result ?? this.outputFilePath;
-      this.appStore.setTransOutputPath(this.outputFilePath);
+      if (result != null) {
+        this.outputFilePath = result;
+        this.appStore.setTransOutputPath(result);
+      }
     },
 
     errorsFlagged(): boolean {

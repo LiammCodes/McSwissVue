@@ -86,7 +86,15 @@ import { defineComponent, PropType } from "vue";
 import { FileData, SelectOption, Status } from "../types/Types";
 import { getFilePath } from "../utils/electronFilePath";
 
+const ACCEPTED_EXTENSIONS = ['.mp4', '.mov', '.m4v'];
+
+function fileHasAcceptedExtension(file: File): boolean {
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  return ACCEPTED_EXTENSIONS.includes(ext ? '.' + ext : '');
+}
+
 export default defineComponent({
+  emits: ['file-selected', 'files-loaded', 'bad-extension'],
   props: {
     files: {
       type: Array as PropType<File[]>,
@@ -147,8 +155,13 @@ export default defineComponent({
   async mounted() {
     await this.setTempDirectory();
     await this.buildFileObjects(this.files);
-    this.handleFileSelection(this.fileObjects[0])
-    this.selectFirstFile();
+    if (this.fileObjects.length > 0) {
+      this.handleFileSelection(this.fileObjects[0]);
+      this.selectFirstFile();
+    } else {
+      this.selectedFile = {} as FileData;
+      this.$emit('file-selected', this.selectedFile);
+    }
     this.filesLoaded();
   },
   computed: {
@@ -166,16 +179,17 @@ export default defineComponent({
     },
 
     removeFile(index: number) {
-      console.log(index)
       this.fileObjects.splice(index, 1);
-      this.handleFileSelection(this.fileObjects[0]);
-
+      if (this.fileObjects.length > 0) {
+        this.handleFileSelection(this.fileObjects[0]);
+      } else {
+        this.selectedFile = {} as FileData;
+        this.$emit('file-selected', this.selectedFile);
+      }
     },
     handleMenuOptionClick(value: string) {
       if (value === 'remove') {
-        console.log("Remove file")
-        console.log(this.fileIndexCtxClicked)
-        if (this.fileIndexCtxClicked !== null){
+        if (this.fileIndexCtxClicked !== null) {
           this.removeFile(this.fileIndexCtxClicked);
           this.$emit('files-loaded', this.fileObjects);
         }
@@ -185,7 +199,6 @@ export default defineComponent({
     },
     openMenu(event: any, fileObj: FileData, fileIndex: number) {
       if (!this.processing) {
-        console.log(this.processing)
         this.isMenuOpen = true;
         this.handleFileSelection(fileObj);
         this.fileIndexCtxClicked = fileIndex;
@@ -209,17 +222,16 @@ export default defineComponent({
     },
 
     async setTempDirectory() {
-      await this.ipcRenderer.invoke('get-app-path').then((result: any) => {
-        this.tempPath = this.path.join(result);
-      })
+      const result = await this.ipcRenderer.invoke('get-app-path');
+      this.tempPath = this.path.join(result ?? '');
     },
 
     getStatusColor(index: number) {
-      return this.fileStatuses[index].color
+      const status = this.fileStatuses[index];
+      return status?.color ?? 'text-primary';
     },
 
     async buildFileObjects(files: File[]) {
-      console.log('building files')
       this.filesLoading = true;
       const filesWithPath = files.filter((file: File) => {
         const p = this.getFilePath(file);
@@ -249,8 +261,12 @@ export default defineComponent({
         this.filesLoading = false;
         this.fileObjects = fileObjects;
 
-        this.handleFileSelection(this.fileObjects[0]);
-        
+        if (this.fileObjects.length > 0) {
+          this.handleFileSelection(this.fileObjects[0]);
+        } else {
+          this.selectedFile = {} as FileData;
+          this.$emit('file-selected', this.selectedFile);
+        }
       } catch (error) {
         console.error('Error:', error);
       }
@@ -263,7 +279,7 @@ export default defineComponent({
       }
       return new Promise<string>((resolve, reject) => {
         const thumbnailFileName = this.path.basename(file.name, this.path.extname(file.name)) + ".png";
-        // @ts-ignore
+        // @ts-ignore - spawn from setup(); Node types not in Vue component type
         const childProcess = this.spawn(this.ffmpeg.replace('app.asar', 'app.asar.unpacked'), ['-y', '-ss', cutTime, '-i', filePath, '-frames:v', '1', this.path.join(this.tempPath, thumbnailFileName)]);
         
         childProcess.on('close', (code: any) => {
@@ -292,7 +308,7 @@ export default defineComponent({
           height: 0 as number,
         };
         const stdoutChunks: Buffer[] = [];
-        // @ts-ignore
+        // @ts-ignore - spawn/ffprobe from setup(); Node types not in Vue component type
         const childProcess = this.spawn(this.ffprobe.replace('app.asar', 'app.asar.unpacked'), [
           '-v', 'error',
           '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,width,height',
@@ -405,41 +421,29 @@ export default defineComponent({
     },
 
     handleDragOver(event: DragEvent) {
-      console.log('handling drag over');
       event.preventDefault();
     },
     handleDrop(event: DragEvent) {
-      console.log('handling drop event');
       event.preventDefault();
-      let files: File[];
-      const acceptedExtensions = ['.mp4', '.mov', '.m4v'];
-      let badExtension = false;
-      files = Array.from(event.dataTransfer?.files || []);
-
-      // check the extension of the file
-      files.forEach((file: File) => {
-        const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
-        if (!acceptedExtensions.includes('.' + fileExtension)) {
-          badExtension = true;
-          return;
-        }
-      })
-
-      if (badExtension) {
-        // Notify the user that the file type is not accepted
-        this.$emit('bad-extension')
+      const files = Array.from(event.dataTransfer?.files || []);
+      const bad = files.some((f) => !fileHasAcceptedExtension(f));
+      if (bad) {
+        this.$emit('bad-extension');
       } else {
         this.buildFileObjects(files);
       }
     },
-
     handleFileUpload(event: Event) {
       const input = event.target as HTMLInputElement;
-      if (input.files) {
-        const files = Array.from(input.files);
+      if (!input.files) return;
+      const files = Array.from(input.files);
+      const bad = files.some((f) => !fileHasAcceptedExtension(f));
+      if (bad) {
+        this.$emit('bad-extension');
+      } else {
         this.buildFileObjects(files);
-        // this.$emit("files-uploaded", files);
       }
+      input.value = '';
     },
 
   },

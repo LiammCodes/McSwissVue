@@ -58,20 +58,23 @@ function createWindow() {
 }
 
 function clearTempFiles() {
-  // only necessary for dev env
-  if (isDev) {
-    const directory = "src/temp/";
+  if (!isDev) return;
+  const directory = path.join(__dirname, 'src', 'temp');
 
-    fs.readdir(directory, (err, files) => {
-      if (err) throw err;
-  
-      for (const file of files) {
-        fs.unlink(path.join(directory, file), (err) => {
-          if (err) throw err;
-        });
-      }
+  fs.readdir(directory, (err, files) => {
+    if (err) {
+      console.warn('[clearTempFiles] readdir failed:', err.message);
+      return;
+    }
+    files.forEach((file) => {
+      const filePath = path.join(directory, file);
+      fs.unlink(filePath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.warn('[clearTempFiles] unlink failed:', filePath, unlinkErr.message);
+        }
+      });
     });
-  }
+  });
 }
 
 app.whenReady().then(() => {
@@ -336,25 +339,18 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('dialog', async (event, method, params) => {       
-    // If the platform is 'darwin' (macOS)
+  // Single dialog: choose output directory. Returns selected path or null if cancelled.
+  ipcMain.handle('dialog', async () => {
     try {
-      const file = await dialog.showOpenDialog({
+      const result = await dialog.showOpenDialog(mainWindow, {
         title: 'Select a directory to output the results to.',
         buttonLabel: 'Save',
-        properties: ['openDirectory']
+        properties: ['openDirectory'],
       });
-      
-      if (file.filePaths && file.filePaths.length > 0) {
-        return file.filePaths[0];
-      } else {
-        // Handle the case where the user canceled the dialog or no files were selected.
-        return null;
-      }
+      return result.filePaths?.length ? result.filePaths[0] : null;
     } catch (error) {
-      // Handle any errors that may occur during the dialog.
-      console.error(error);
-      throw error; // You can choose to rethrow the error or handle it as needed.
+      console.error('[dialog]', error);
+      throw error;
     }
   });
   

@@ -1,8 +1,7 @@
 /**
- * The preload script runs before. It has access to web APIs
- * as well as Electron's renderer process modules and some
- * polyfilled Node.js functions.
- *
+ * The preload script runs before the renderer. It has access to web APIs
+ * and Electron renderer process modules.
+ * Theme colors here must stay in sync with src/constants/index.ts (TITLEBAR_COLORS).
  * https://www.electronjs.org/docs/latest/tutorial/sandbox
  */
 const { Titlebar, TitlebarColor } = require('custom-electron-titlebar')
@@ -39,29 +38,33 @@ function getTitlebarColor(theme) {
   }
 }
 
-function rgbToHex(rgbString) {
-  // Extract the numbers from the RGB string
-  const matches = rgbString.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-  
-  // Ensure the RGB string format is correct
-  if (!matches) {
-      throw new Error('Invalid RGB string format');
+/**
+ * Converts a color string to hex for TitlebarColor.fromHex.
+ * Accepts "rgb(r, g, b)" or "#rrggbb" / "#rgb" (e.g. cupcake theme).
+ */
+function colorToHex(colorString) {
+  const trimmed = (colorString || '').trim();
+  const hexMatch = trimmed.match(/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/);
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    if (hex.length === 3) {
+      return '#' + hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    return '#' + hex;
   }
-
-  // Parse the numbers
-  const r = parseInt(matches[1]);
-  const g = parseInt(matches[2]);
-  const b = parseInt(matches[3]);
-
-  // Convert the numbers to hexadecimal
-  const hex = '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-
-  return hex.toUpperCase(); // Optionally convert to uppercase
+  const rgbMatch = trimmed.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+  }
+  return '#191C20';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
   const options = {
-    backgroundColor: TitlebarColor.fromHex(rgbToHex(getTitlebarColor(loadStoredTheme()))),
+    backgroundColor: TitlebarColor.fromHex(colorToHex(getTitlebarColor(loadStoredTheme()))),
 		menuTransparency: 0.2,
     titleHorizontalAlignment: 'center',
     removeMenuBar: true

@@ -95,7 +95,7 @@
             <check-circle-icon v-if="awsTestPass && awsTestPass !== null" class="h-6 w-6 mr-2 text-success"/>
             <x-circle-icon v-if="!awsTestPass && awsTestPass !== null" class="h-6 w-6 mr-2 text-error"/>
           </div>
-          <label class="btn btn-sm btn-outline" @click="testAwsConnection()">
+          <label class="btn btn-sm btn-outline" :class="{ 'btn-disabled opacity-60 pointer-events-none': awsTestLoading }" @click="!awsTestLoading && testAwsConnection()">
             test
           </label>
         </div>
@@ -184,14 +184,12 @@ export default defineComponent({
   },
   methods: {
     async setVersion() {
-      await this.ipcRenderer.invoke('get-version').then((result: string) => {
-        this.appVersion = result;
-      })
+      const result = await this.ipcRenderer.invoke('get-version');
+      this.appVersion = result ?? '';
     },
     async setVersionRelease() {
-      await this.ipcRenderer.invoke('get-version-release').then((result: string) => {
-        this.appVersionRelease = result;
-      })
+      const result = await this.ipcRenderer.invoke('get-version-release');
+      this.appVersionRelease = result ?? '';
     },
     setKeysFromStorage() {
       this.s3Bucket = this.appStore.s3BucketName;
@@ -200,7 +198,7 @@ export default defineComponent({
     },
 
     goToWebsite() {
-      // @ts-ignore
+      // @ts-ignore - electron.shell typed on window in Electron, not in Vue this
       this.electron.shell.openExternal("https://liamcodes.com/");
     },
 
