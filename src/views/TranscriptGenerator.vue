@@ -92,6 +92,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
+import { useTabsStore } from '../stores/tabsStore';
 import { FileData, SelectOption, Status, Toast } from '../types/Types';
 import { fileAlreadyExists, removeExtension } from '../utils/HelperFunctions';
 import { getFilePath } from '../utils/electronFilePath';
@@ -105,13 +106,27 @@ export default defineComponent({
   name: 'TranscriptGenerator',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn },
   emits: ['toggle-toast'],
+  props: {
+    tabId: { type: String, default: null },
+  },
   setup() {
     const appStore = useAppStore();
+    const tabsStore = useTabsStore();
     const ipcRenderer = require('electron').ipcRenderer;
     const fs = require('fs');
     const path = require('path');
 
-    return { appStore, fs, ipcRenderer, path };
+    return { appStore, tabsStore, fs, ipcRenderer, path };
+  },
+  watch: {
+    transcribing(newVal: boolean) {
+      if (this.tabId)
+        this.tabsStore.setTabProgress(this.tabId, newVal ? this.progress : null);
+    },
+    progress(newVal: number) {
+      if (this.tabId && this.transcribing)
+        this.tabsStore.setTabProgress(this.tabId, newVal);
+    },
   },
   data() {
     return {

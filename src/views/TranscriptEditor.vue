@@ -151,6 +151,9 @@ function isTranscript(file: File): boolean {
 export default defineComponent({
   name: 'TranscriptEditor',
   emits: ['toggle-toast'],
+  props: {
+    tabId: { type: String, default: null },
+  },
   setup() {
     const fs = require('fs');
     return { fs };

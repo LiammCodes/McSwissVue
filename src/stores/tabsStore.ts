@@ -15,6 +15,8 @@ export const useTabsStore = defineStore({
   state: () => ({
     tabs: [] as Tab[],
     activeTabId: null as string | null,
+    /** Progress 0–100 when tool is running, null when idle. Keyed by tab id. */
+    tabProgress: {} as Record<string, number | null>,
   }),
   getters: {
     activeTab(state): Tab | null {
@@ -24,8 +26,18 @@ export const useTabsStore = defineStore({
     hasTabs(state): boolean {
       return state.tabs.length > 0;
     },
+    progressForTab: (state) => (tabId: string): number | null => {
+      return state.tabProgress[tabId] ?? null;
+    },
   },
   actions: {
+    setTabProgress(tabId: string, value: number | null) {
+      if (value === null) {
+        delete this.tabProgress[tabId];
+      } else {
+        this.tabProgress[tabId] = Math.min(100, Math.max(0, value));
+      }
+    },
     addTab(view: View): string {
       const id = generateTabId();
       const tab: Tab = { id, view };
@@ -34,6 +46,7 @@ export const useTabsStore = defineStore({
       return id;
     },
     closeTab(id: string) {
+      delete this.tabProgress[id];
       const index = this.tabs.findIndex((t) => t.id === id);
       if (index === -1) return;
       this.tabs.splice(index, 1);

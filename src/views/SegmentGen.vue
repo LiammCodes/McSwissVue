@@ -55,6 +55,7 @@
               <p>Size: <span class="float-right">{{ segmentFileSize }}</span></p>
               <p>Bitrate: <span class="float-right">{{ segmentFileBitrate }}</span></p>
               <p>Resolution: <span class="float-right">{{ segmentFileResolution }}</span></p>
+              <p>Frame rate: <span class="float-right">{{ segmentFileFrameRate }}</span></p>
             </div>
           </div>
         </template>
@@ -124,6 +125,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
+import { useTabsStore } from '../stores/tabsStore';
 import { FileData, Segment, SelectOption, Toast } from '../types/Types';
 import { PlusCircleIcon } from '@heroicons/vue/24/outline';
 import { 
@@ -145,9 +147,13 @@ export default defineComponent({
   name: 'SegmentGen',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McSegment, PlusCircleIcon },
   emits: ['toggle-toast'],
+  props: {
+    tabId: { type: String, default: null },
+  },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
+    const tabsStore = useTabsStore();
     const os = require('os');
     const ffmpeg = require('ffmpeg-static');
     const ffprobe = require('@ffprobe-installer/ffprobe');
@@ -157,7 +163,17 @@ export default defineComponent({
     const path = require('path');
     const fs = require('fs');
     const { pathToFileURL } = require('url');
-    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, pathToFileURL, ffmpeg, ffprobe, spawn };
+    return { appRootDir, appStore, tabsStore, dialog, fs, ipcRenderer, os, path, pathToFileURL, ffmpeg, ffprobe, spawn };
+  },
+  watch: {
+    generating(newVal: boolean) {
+      if (this.tabId)
+        this.tabsStore.setTabProgress(this.tabId, newVal ? this.progressStr : null);
+    },
+    progressStr(newVal: number) {
+      if (this.tabId && this.generating)
+        this.tabsStore.setTabProgress(this.tabId, newVal);
+    },
   },
   data() {
     return {
@@ -246,6 +262,12 @@ export default defineComponent({
         return `${this.selectedFile.width} × ${this.selectedFile.height}`;
       }
       return '—';
+    },
+    segmentFileFrameRate(): string {
+      const fps = this.selectedFile?.frameRate;
+      if (fps == null || !Number.isFinite(fps) || fps <= 0) return '—';
+      const s = String(fps);
+      return s.includes('.') ? s.replace(/\.?0+$/, '') + ' fps' : s + ' fps';
     },
   },
   methods: {

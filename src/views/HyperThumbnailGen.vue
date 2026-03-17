@@ -64,6 +64,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
+import { useTabsStore } from '../stores/tabsStore';
 import { FileData, Toast } from '../types/Types';
 import { 
   fileAlreadyExists,
@@ -85,9 +86,13 @@ export default defineComponent({
   name: 'HyperThumbnailGen',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McTimeInput },
   emits: ['toggle-toast'],
+  props: {
+    tabId: { type: String, default: null },
+  },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
+    const tabsStore = useTabsStore();
     const os = require('os');
     const ffmpeg = require('ffmpeg-static');
     const ffprobe = require('@ffprobe-installer/ffprobe');
@@ -96,7 +101,17 @@ export default defineComponent({
     const dialog = require('electron').dialog;
     const path = require('path');
     const fs = require('fs');
-    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
+    return { appRootDir, appStore, tabsStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
+  },
+  watch: {
+    generating(newVal: boolean) {
+      if (this.tabId)
+        this.tabsStore.setTabProgress(this.tabId, newVal ? this.progress : null);
+    },
+    progress(newVal: number) {
+      if (this.tabId && this.generating)
+        this.tabsStore.setTabProgress(this.tabId, newVal);
+    },
   },
   data(){
     return {

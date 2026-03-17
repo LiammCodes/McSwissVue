@@ -253,6 +253,7 @@ export default defineComponent({
             size: metadata.size,
             width: metadata.width,
             height: metadata.height,
+            frameRate: metadata.frameRate,
           }
           return fileObj;
         });
@@ -299,19 +300,20 @@ export default defineComponent({
       if (!filePath) {
         return Promise.reject(new Error('File has no filesystem path (required for ffprobe)'));
       }
-      return new Promise<{ bitrate: string; duration: string; size: string; width: number; height: number }>((resolve, reject) => {
+      return new Promise<{ bitrate: string; duration: string; size: string; width: number; height: number; frameRate: number | null }>((resolve, reject) => {
         const result = {
           bitrate: '' as string,
           duration: '' as string,
           size: '' as string,
           width: 0 as number,
           height: 0 as number,
+          frameRate: null as number | null,
         };
         const stdoutChunks: Buffer[] = [];
         // @ts-ignore - spawn/ffprobe from setup(); Node types not in Vue component type
         const childProcess = this.spawn(this.ffprobe.replace('app.asar', 'app.asar.unpacked'), [
           '-v', 'error',
-          '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,width,height',
+          '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,width,height,avg_frame_rate,r_frame_rate',
           '-of', 'json',
           '-i', filePath,
         ]);
@@ -352,6 +354,21 @@ export default defineComponent({
               if (!isNaN(w) && !isNaN(h)) {
                 result.width = w;
                 result.height = h;
+              }
+              const frRaw = (videoStreamForSize.avg_frame_rate && videoStreamForSize.avg_frame_rate !== '0/0')
+                ? videoStreamForSize.avg_frame_rate
+                : videoStreamForSize.r_frame_rate;
+              if (typeof frRaw === 'string' && frRaw.includes('/')) {
+                const [nStr, dStr] = frRaw.split('/');
+                const n = parseFloat(nStr);
+                const d = parseFloat(dStr);
+                if (Number.isFinite(n) && Number.isFinite(d) && d > 0) {
+                  const fps = n / d;
+                  // Round for display; keep enough precision for 23.976 etc.
+                  result.frameRate = Math.round(fps * 1000) / 1000;
+                }
+              } else if (typeof frRaw === 'number' && Number.isFinite(frRaw) && frRaw > 0) {
+                result.frameRate = Math.round(frRaw * 1000) / 1000;
               }
             }
           } catch (_e) {

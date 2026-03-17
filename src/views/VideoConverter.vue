@@ -29,7 +29,7 @@
     <mc-data-intake class="shrink-0">
       <template v-slot:data-intake>
       <div v-if="!converting" class="flex justify-between items-center gap-10">
-        <div class="space-y-2">
+        <div class="space-y-1">
           <div class="flex items-center gap-2">
             <span class="w-24 shrink-0 text-right text-sm">Format:</span>
             <div class="dropdown dropdown-top shrink-0">
@@ -73,11 +73,10 @@
             </div>
             <span class="w-12 shrink-0 text-sm">kbit/s</span>
           </div>
-
         </div>
-        <div class="space-y-2 flex-grow max-w-md">
+        <div class="space-y-1 flex-grow max-w-md">
           <div class="flex items-center space-x-2">
-            <span class="w-20 text-left shrink-0">Resolution:</span>
+            <span class="w-20 text-left shrink-0 text-sm whitespace-nowrap">Resolution:</span>
             <input
               type="number"
               v-model.number="outputWidth"
@@ -97,26 +96,48 @@
             />
             <span>px</span>
           </div>
+          <div class="flex items-center space-x-2">
+            <span class="w-20 text-left shrink-0 text-sm whitespace-nowrap">Frame rate:</span>
+            <div class="dropdown dropdown-top shrink-0">
+              <div tabindex="0" role="button" class="btn btn-sm bg-base-100 w-28" style="text-transform: none;">
+                {{ frameRateMode === 'source' ? 'Source' : 'Custom' }}
+              </div>
+              <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52 mb-2">
+                <li @click="frameRateMode = 'source'"><a>Source</a></li>
+                <li @click="frameRateMode = 'custom'"><a>Custom...</a></li>
+              </ul>
+            </div>
+            <input
+              v-if="frameRateMode === 'custom'"
+              type="text"
+              v-model="frameRate"
+              class="input input-sm w-20 text-center shrink-0"
+              placeholder="e.g. 24"
+            />
+            <span class="w-12 shrink-0 text-sm">fps</span>
+          </div>
           <div class="flex items-start gap-2">
-            <span class="w-20 shrink-0 text-left pt-1.5">Output:</span>
+            <span class="w-20 shrink-0 text-left pt-1 whitespace-nowrap text-sm">Output:</span>
             <div class="flex-1 min-w-0 space-y-1">
               <div class="flex items-center gap-2">
                 <input type="text" readonly placeholder="None" v-model="outputFilePath" class="input input-sm w-full border focus:outline-none" />
                 <label class="btn btn-sm btn-ghost border border-base-content shrink-0" @click="setOutputPath">browse</label>
               </div>
-              <div v-if="estimatedBitrateKbps !== null" class="text-xs text-base-content/70 space-y-0.5">
-                <p>Estimated bitrate: <strong>{{ estimatedBitrateKbps }} kbit/s</strong></p>
-                <p v-if="estimatedFileSizeMB !== null">Estimated file size: <strong>{{ estimatedFileSizeMB }} MB</strong></p>
-              </div>
-              <div v-else class="text-xs text-base-content/60">
-                Estimates are unavailable for the current file or bitrate. Duration and bitrate must be valid.
-              </div>
             </div>
           </div>
         </div>
-        <label class="btn btn-primary" @click="handleGenerate()">
-          generate
-        </label>
+        <div class="shrink-0 flex flex-col items-end gap-3">
+          <label class="btn btn-primary" @click="handleGenerate()">
+            generate
+          </label>
+          <div v-if="estimatedBitrateKbps !== null" class="text-xs text-base-content/70 text-right space-y-0.5">
+            <p>Estimated bitrate: <strong>{{ estimatedBitrateKbps }} kbit/s</strong></p>
+            <p v-if="estimatedFileSizeMB !== null">Estimated file size: <strong>{{ estimatedFileSizeMB }} MB</strong></p>
+          </div>
+          <div v-else class="text-xs text-base-content/60 text-right max-w-[260px]">
+            Estimates are unavailable for the current file or bitrate.
+          </div>
+        </div>
       </div>
       <div class="py-3" v-else>
         <div class="mb-2 text-base font-medium flex justify-between">
@@ -135,6 +156,7 @@
 <script lang="ts">
 import { defineComponent, ref } from 'vue';
 import { useAppStore } from '../stores/appStore';
+import { useTabsStore } from '../stores/tabsStore';
 import { FileData, Toast } from '../types/Types';
 import { 
   fileAlreadyExists,
@@ -157,9 +179,13 @@ export default defineComponent({
   name: 'VideoConverter',
   components: { McBinaryModal, McDataIntake, McFileUpload, McFileGrid, McMetaDataColumn, McTimeInput },
   emits: ['toggle-toast'],
+  props: {
+    tabId: { type: String, default: null },
+  },
   setup() {
     const appRootDir = require('app-root-dir').get();
     const appStore = useAppStore();
+    const tabsStore = useTabsStore();
     const os = require('os');
     const ffmpeg = require('ffmpeg-static');
     const ffprobe = require('@ffprobe-installer/ffprobe');
@@ -168,7 +194,7 @@ export default defineComponent({
     const dialog = require('electron').dialog;
     const path = require('path');
     const fs = require('fs');
-    return { appRootDir, appStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
+    return { appRootDir, appStore, tabsStore, dialog, fs, ipcRenderer, os, path, ffmpeg, ffprobe, spawn }
   },
   data(){
     return {
@@ -219,9 +245,19 @@ export default defineComponent({
       conversionReport: '' as string,
       outputWidth: 0 as number,
       outputHeight: 0 as number,
+      frameRateMode: 'source' as 'source' | 'custom',
+      frameRate: '' as string,
     }
   },
   watch: {
+    converting(newVal: boolean) {
+      if (this.tabId)
+        this.tabsStore.setTabProgress(this.tabId, newVal ? this.progressForDisplay : null);
+    },
+    progressForDisplay(newVal: number) {
+      if (this.tabId && this.converting)
+        this.tabsStore.setTabProgress(this.tabId, newVal);
+    },
     selectedFile: {
       handler(newVal: FileData) {
         if (newVal && newVal.width > 0 && newVal.height > 0) {
@@ -370,6 +406,13 @@ export default defineComponent({
       if (this.videoBitrateIsCustom && !(/^\d+$/.test(this.bitrate))) {
         this.toastMessage = 'Please enter a valid video bitrate';
         return true;
+      } else if (this.frameRateMode === 'custom') {
+        const v = this.frameRate.trim();
+        const n = parseFloat(v);
+        if (!v || !/^\d+(\.\d+)?$/.test(v) || !Number.isFinite(n) || n <= 0) {
+          this.toastMessage = 'Please enter a valid frame rate';
+          return true;
+        }
       } else if (this.outputFilePath === 'None' || this.outputFilePath === null || !this.outputFilePath) {
         this.toastMessage = 'Please enter a valid output path';
         return true;
@@ -468,9 +511,13 @@ export default defineComponent({
           reject(new Error('Failed to spawn FFmpeg process.'));
           return;
         }
+        let stderrBuf = '';
         const pattern = /time=(\d+:\d+:\d+\.\d+)/;
         childProcess.stderr.on('data', (data: Buffer | string) => {
-          const pct = this.parseFFmpegProgress(data.toString(), '00:00:00', fileObj.duration, pattern);
+          const text = data.toString();
+          stderrBuf += text;
+          if (stderrBuf.length > 12000) stderrBuf = stderrBuf.slice(-12000);
+          const pct = this.parseFFmpegProgress(text, '00:00:00', fileObj.duration, pattern);
           const raw = progressStart + (pct / 100) * (progressEnd - progressStart);
           const value = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : this.progress;
           this.progress = value;
@@ -480,7 +527,10 @@ export default defineComponent({
         });
         childProcess.on('close', (code: number | null, signal: string | null) => {
           if (code === 0) resolve();
-          else if (code != null) reject(new Error(`FFmpeg exited with code ${code}`));
+          else if (code != null) {
+            const tail = stderrBuf.trim().split(/\r?\n/).slice(-12).join('\n');
+            reject(new Error(`FFmpeg exited with code ${code}${tail ? `\n${tail}` : ''}`));
+          }
           else reject(new Error(`FFmpeg ended unexpectedly${signal ? ` (${signal})` : ''}`));
         });
         childProcess.on('error', reject);
@@ -510,6 +560,22 @@ export default defineComponent({
         this.$emit('toggle-toast', this.toast);
         return;
       }
+      if (!this.outputFilePath || this.outputFilePath === 'None') {
+        this.toast = { message: 'Please choose an output folder before converting.', kind: 'alert-error', timeout: 4000 };
+        this.$emit('toggle-toast', this.toast);
+        return;
+      }
+      try {
+        if (!this.fs.existsSync(this.outputFilePath)) {
+          this.toast = { message: 'Output folder does not exist. Please choose a valid folder.', kind: 'alert-error', timeout: 5000 };
+          this.$emit('toggle-toast', this.toast);
+          return;
+        }
+      } catch (_) {
+        this.toast = { message: 'Unable to access output folder. Please choose a different folder.', kind: 'alert-error', timeout: 5000 };
+        this.$emit('toggle-toast', this.toast);
+        return;
+      }
 
       const targetKbps = parseInt(this.bitrate, 10);
       const bitrateK = this.bitrate + 'k';
@@ -531,14 +597,26 @@ export default defineComponent({
         evenW > 0 && evenH > 0
           ? `scale=${evenW}:${evenH}:force_original_aspect_ratio=decrease,pad=${evenW}:${evenH}:(ow-iw)/2:(oh-ih)/2`
           : null;
+      const fpsArgs =
+        this.frameRateMode === 'custom' && this.frameRate.trim() !== ''
+          ? ['-r', this.frameRate.trim()]
+          : [];
 
       try {
         for (let i = 0; i < totalFiles; i++) {
           const fileObj = this.fileObjects[i] as FileData;
-          const outputPath = this.path.join(
+          const inputPath = getFilePath(fileObj.file);
+          let outputPath = this.path.join(
             this.outputFilePath,
             this.removeExtension(fileObj.file.name) + this.outputFileExtension
           );
+          if (inputPath && this.path.resolve(inputPath) === this.path.resolve(outputPath)) {
+            // Avoid \"Output ... same as Input\" errors by suffixing the filename.
+            outputPath = this.path.join(
+              this.outputFilePath,
+              this.removeExtension(fileObj.file.name) + '-converted' + this.outputFileExtension
+            );
+          }
           outputPaths.push(outputPath);
 
           const baseName = this.path.basename(fileObj.file.name, this.path.extname(fileObj.file.name));
@@ -560,6 +638,7 @@ export default defineComponent({
             '-maxrate', maxrateK,
             '-bufsize', bufsizeK,
             '-preset', 'medium',
+            ...fpsArgs,
             '-an',
             '-f', 'matroska',
             pass1OutPath,
@@ -577,6 +656,7 @@ export default defineComponent({
             '-maxrate', maxrateK,
             '-bufsize', bufsizeK,
             '-preset', 'medium',
+            ...fpsArgs,
             '-c:a', 'aac',
             '-strict', 'experimental',
             '-b:a', audioBitrateK,
@@ -613,7 +693,7 @@ export default defineComponent({
         this.progress = 0;
         this.progressDisplay = 0;
         this.toast = {
-          message: 'Conversion failed: ' + (err as Error)?.message || 'unknown error',
+          message: 'Conversion failed: ' + (((err as Error)?.message) || 'unknown error'),
           kind: 'alert-error',
           timeout: 5000
         };

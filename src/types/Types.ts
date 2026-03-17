@@ -11,8 +11,12 @@ export type FileData = {
   duration: string,
   file: null | File,
   thumbnailPath: string,
+  /** Raw byte size as string (ffprobe format.size). */
+  size?: string,
   width: number,
   height: number,
+  /** Frames per second (rounded to 3dp). Null/undefined if unknown. */
+  frameRate?: number | null,
 }
 
 export type SelectOption = {

@@ -14,6 +14,7 @@
         <p>Size: <span class="float-right">{{ fileSize }}</span></p>
         <p>Bitrate: <span class="float-right">{{ fileBitrate }}</span></p>
         <p>Resolution: <span class="float-right">{{ fileResolution || '—' }}</span></p>
+        <p>Frame rate: <span class="float-right">{{ fileFrameRate }}</span></p>
       </div>
     </div>
   </div>
@@ -57,6 +58,13 @@ export default defineComponent({
         return `${this.selectedFile.width} × ${this.selectedFile.height}`;
       }
       return '';
+    },
+    fileFrameRate(): string {
+      const fps = this.selectedFile?.frameRate;
+      if (fps == null || !Number.isFinite(fps) || fps <= 0) return '—';
+      // Trim trailing zeros for integers, keep common fractional rates readable.
+      const s = String(fps);
+      return s.includes('.') ? s.replace(/\.?0+$/, '') + ' fps' : s + ' fps';
     }
   },
   methods: {

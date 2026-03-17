@@ -15,23 +15,36 @@
           </ul>
         </div>
         <!-- Tab bar -->
-        <div class="flex gap-1 overflow-x-auto min-w-0 scrollbar-thin">
+        <div class="flex gap-1 overflow-x-auto min-w-0 scrollbar-thin items-end">
           <button
             v-for="tab in tabsStore.tabs"
             :key="tab.id"
             type="button"
-            class="btn btn-sm shrink-0 gap-1"
-            :class="tabsStore.activeTabId === tab.id && route.name === 'Workspace' ? 'btn-active' : 'btn-ghost'"
+            class="tab-btn flex flex-col items-stretch shrink-0 rounded-lg min-w-0 transition-colors pt-1 px-2 gap-0"
+            :class="[tabBtnClass(tab.id), tabProgress(tab.id) !== null ? 'pb-0' : 'pb-1']"
             @click="handleTabClick(tab.id)"
           >
-            <span class="truncate max-w-[120px]">{{ tab.view }}</span>
-            <span
-              class="btn btn-ghost btn-xs btn-circle p-0 min-h-0 h-5 w-5 rounded-full hover:bg-primary-content/20"
-              aria-label="Close tab"
-              @click.stop="handleCloseTab(tab.id)"
-            >
-              <x-mark-icon class="h-3.5 w-3.5" />
+            <!-- Title + close row (same alignment as original) -->
+            <span class="flex items-center gap-1 h-8 text-xs">
+              <span class="truncate max-w-[120px] leading-tight">{{ tab.view }}</span>
+              <span
+                class="btn btn-ghost btn-sm btn-circle p-0 min-h-0 h-6 w-6 rounded-full hover:bg-primary-content/20"
+                aria-label="Close tab"
+                @click.stop="handleCloseTab(tab.id)"
+              >
+                <x-mark-icon class="h-4 w-4" />
+              </span>
             </span>
+            <!-- Progress bar at very bottom of tab, no padding -->
+            <div
+              v-if="tabProgress(tab.id) !== null"
+              class="w-full h-0.5 rounded-b-lg bg-primary-content/30 overflow-hidden shrink-0"
+            >
+              <div
+                class="h-full rounded-full bg-secondary transition-[width] duration-300 ease-out"
+                :style="{ width: (tabProgress(tab.id) ?? 0) + '%' }"
+              />
+            </div>
           </button>
         </div>
       </div>
@@ -111,6 +124,17 @@ export default defineComponent({
     },
   },
   methods: {
+    tabProgress(tabId: string): number | null {
+      return this.tabsStore.progressForTab(tabId);
+    },
+    tabBtnClass(tabId: string): string {
+      const isActive =
+        this.tabsStore.activeTabId === tabId && this.route.name === 'Workspace';
+      if (isActive) {
+        return 'bg-base-100 text-base-content shadow-sm';
+      }
+      return 'bg-transparent text-primary-content/90 hover:bg-primary-content/15';
+    },
     handleAddTool(view: View) {
       this.appStore.setSelectedView(view);
       this.tabsStore.addTab(view);

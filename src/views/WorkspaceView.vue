@@ -20,6 +20,7 @@
           <component
             :is="viewComponent(tab.view)"
             :key="tab.id"
+            :tab-id="tab.id"
             @toggle-toast="$emit('toggle-toast', $event)"
           />
         </keep-alive>
