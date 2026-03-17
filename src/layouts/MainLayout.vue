@@ -17,6 +17,7 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import { useAppStore } from '../stores/appStore';
+import { useTabsStore } from '../stores/tabsStore';
 import { Toast } from '../types/Types';
 import McToast from '../components/McToast.vue';
 import McNavbar from '../components/McNavbar.vue';
@@ -29,7 +30,8 @@ export default defineComponent({
   },
   setup() {
     const appStore = useAppStore();
-    return { appStore };
+    const tabsStore = useTabsStore();
+    return { appStore, tabsStore };
   },
   data() {
     return {
@@ -37,14 +39,11 @@ export default defineComponent({
       toast: {} as Toast
     }
   },
-  // computed: {
-  //   isMac() {
-  //     let osType = this.os.type + "" as string;
-  //     return osType.toLowerCase() == "darwin";
-  //   }
-  // },
   mounted() {
-    this.$router.push({ name: this.appStore.selectedView });
+    this.tabsStore.ensureAtLeastOneTab(this.appStore.selectedView);
+    if (this.$route.name !== 'Settings') {
+      this.$router.replace({ name: 'Workspace' });
+    }
     this.setupUpdateListeners();
   },
   beforeUnmount() {
