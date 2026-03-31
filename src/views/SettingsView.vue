@@ -132,6 +132,20 @@
           </div>
         </div>
       </div>
+
+      <!-- Logs card -->
+      <div class="col-span-3 bg-base-200 rounded-xl p-4">
+        <div class="flex items-center mb-2">
+          <span class="text-lg font-semibold flex-grow">Logs</span>
+          <button type="button" class="btn btn-sm btn-outline btn-primary" @click="openSessionLogFile">
+            Open current session log
+          </button>
+        </div>
+        <p class="text-sm text-base-content/80 mb-2">
+          Logs include everything sent to the app console and are deleted when the app closes.
+        </p>
+        <input type="text" readonly :value="sessionLogPath || 'Session log path unavailable'" class="input input-sm w-full focus:outline-none" />
+      </div>
     </div>
   </div>
 
@@ -175,12 +189,14 @@ export default defineComponent({
       s3Secret: '' as string,
       awsTestPass: null as null | boolean,
       awsTestLoading: false as boolean,
+      sessionLogPath: '' as string,
     }
   },
   async mounted() {
     await this.setVersion();
     await this.setVersionRelease();
     this.setKeysFromStorage();
+    await this.setSessionLogPath();
   },
   methods: {
     async setVersion() {
@@ -195,6 +211,10 @@ export default defineComponent({
       this.s3Bucket = this.appStore.s3BucketName;
       this.s3Access = this.appStore.s3AccessKey;
       this.s3Secret = this.appStore.s3SecretKey;
+    },
+    async setSessionLogPath() {
+      const result = await this.ipcRenderer.invoke('get-session-log-file-path');
+      this.sessionLogPath = result ?? '';
     },
 
     goToWebsite() {
@@ -259,6 +279,22 @@ export default defineComponent({
 
     restartToInstall() {
       this.ipcRenderer.invoke('quit-and-install');
+    },
+    async openSessionLogFile() {
+      const result = await this.ipcRenderer.invoke('open-session-log-file');
+      if (result?.ok) {
+        this.$emit('toggle-toast', {
+          message: 'Opened current session log file.',
+          kind: 'alert-success',
+          timeout: 2500
+        });
+      } else {
+        this.$emit('toggle-toast', {
+          message: result?.error || 'Could not open session log file.',
+          kind: 'alert-error',
+          timeout: 4000
+        });
+      }
     }
   }
 });

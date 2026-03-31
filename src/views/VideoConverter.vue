@@ -821,8 +821,9 @@ export default defineComponent({
         this.converting = false;
         this.progress = 0;
         this.progressDisplay = 0;
+        const errMsg = (((err as Error)?.message) || 'unknown error').split('\n')[0];
         this.toast = {
-          message: 'Conversion failed: ' + (((err as Error)?.message) || 'unknown error'),
+          message: `Conversion failed: ${errMsg}. See Settings > Open current session log for details.`,
           kind: 'alert-error',
           timeout: 5000
         };

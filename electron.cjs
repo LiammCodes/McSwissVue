@@ -1,7 +1,8 @@
 // const { setupTitlebar, attachTitlebarToWindow } = require('custom-electron-titlebar/main');
-const { app, BrowserWindow, Notification, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Notification, Menu, ipcMain, dialog, shell } = require('electron');
 const fs = require('fs');
 const path = require('path')
+const util = require('util');
 const packagejs = require('./package.json');
 const isDev = !app.isPackaged;
 const { autoUpdater, AppUpdater } = require('electron-updater')
@@ -17,6 +18,43 @@ function showNotification (title, body) {
 }
 
 let mainWindow;
+let sessionLogFilePath = null;
+
+function appendSessionLog(source, level, parts) {
+  if (!sessionLogFilePath) return;
+  try {
+    const rendered = parts.map((part) => {
+      if (typeof part === 'string') return part;
+      return util.inspect(part, { depth: 4, breakLength: 120, maxArrayLength: 40 });
+    }).join(' ');
+    const line = `[${new Date().toISOString()}] [${source}] [${String(level).toUpperCase()}] ${rendered}\n`;
+    fs.appendFileSync(sessionLogFilePath, line);
+  } catch (_) {}
+}
+
+function installMainConsoleCapture() {
+  const original = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    debug: console.debug.bind(console),
+  };
+  for (const level of Object.keys(original)) {
+    console[level] = (...args) => {
+      appendSessionLog('main', level, args);
+      original[level](...args);
+    };
+  }
+}
+
+function cleanupSessionLogFile() {
+  if (!sessionLogFilePath) return;
+  try {
+    if (fs.existsSync(sessionLogFilePath)) fs.unlinkSync(sessionLogFilePath);
+  } catch (_) {}
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     autoHideMenuBar: true,
@@ -78,6 +116,12 @@ function clearTempFiles() {
 }
 
 app.whenReady().then(() => {
+  sessionLogFilePath = path.join(app.getPath('temp'), `mcswiss-session-${Date.now()}.log`);
+  try {
+    fs.writeFileSync(sessionLogFilePath, `[${new Date().toISOString()}] [main] [INFO] Session log started.\n`);
+  } catch (_) {}
+  installMainConsoleCapture();
+
   require('@electron/remote/main').initialize()
   createWindow();
 
@@ -158,6 +202,22 @@ app.whenReady().then(() => {
   ipcMain.handle('get-version-release', async (event) => {
     return packagejs.versionReleased;
   })
+
+  ipcMain.handle('get-session-log-file-path', async () => {
+    return sessionLogFilePath;
+  });
+
+  ipcMain.handle('open-session-log-file', async () => {
+    if (!sessionLogFilePath) return { ok: false, error: 'Session log file is unavailable.' };
+    const err = await shell.openPath(sessionLogFilePath);
+    return err ? { ok: false, error: err } : { ok: true, path: sessionLogFilePath };
+  });
+
+  ipcMain.on('log-to-session-file', (_event, payload) => {
+    const level = payload?.level || 'log';
+    const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+    appendSessionLog('renderer', level, entries);
+  });
 
   // Whisper transcription (runs in main process so Node/onnxruntime-node works)
   ipcMain.handle('transcribe-video', async (event, { videoPath, language: uiLanguage }) => {
@@ -365,4 +425,8 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   clearTempFiles();
   app.quit();
+});
+
+app.on('before-quit', () => {
+  cleanupSessionLogFile();
 });
