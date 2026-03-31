@@ -568,6 +568,29 @@ export default defineComponent({
       });
     },
 
+    isInvalidMetadataFailure(err: unknown): boolean {
+      const message = ((err as Error)?.message || '').toLowerCase();
+      return message.includes('creation_time') || message.includes('invalid date');
+    },
+
+    withMetadataDisabled(args: string[]): string[] {
+      const inputIdx = args.indexOf('-i');
+      if (inputIdx === -1) return ['-map_metadata', '-1', ...args];
+      const insertAt = inputIdx + 2;
+      return [...args.slice(0, insertAt), '-map_metadata', '-1', ...args.slice(insertAt)];
+    },
+
+    async runFfmpegWithMetadataFallback(args: string[], fileObj: FileData, onProgress: (pct: number) => void): Promise<void> {
+      try {
+        await this.runFfmpeg(args, fileObj, onProgress);
+      } catch (err) {
+        if (!this.isInvalidMetadataFailure(err)) throw err;
+        console.warn('[VideoConverter] Retrying without source metadata due to invalid metadata fields.');
+        const retryArgs = this.withMetadataDisabled(args);
+        await this.runFfmpeg(retryArgs, fileObj, onProgress);
+      }
+    },
+
     async convertVideos() {
       // Reset per-run overwrite state to avoid stale "aborted" status from prior runs.
       this.overwriteResponse = null;
@@ -699,7 +722,7 @@ export default defineComponent({
           const pass1Args = scaleFilter
             ? [...pass1Base.slice(0, 3), '-vf', scaleFilter, ...pass1Base.slice(3)]
             : pass1Base;
-          await this.runFfmpeg(pass1Args, fileObj, makeProgressCb(fileIndex, 0.5, 0));
+          await this.runFfmpegWithMetadataFallback(pass1Args, fileObj, makeProgressCb(fileIndex, 0.5, 0));
 
           const pass2Base = [
             ...overwriteFlag,
@@ -721,7 +744,7 @@ export default defineComponent({
           const pass2Args = scaleFilter
             ? [...pass2Base.slice(0, pass2Insert), '-vf', scaleFilter, ...pass2Base.slice(pass2Insert)]
             : pass2Base;
-          await this.runFfmpeg(pass2Args, fileObj, makeProgressCb(fileIndex, 0.5, 50));
+          await this.runFfmpegWithMetadataFallback(pass2Args, fileObj, makeProgressCb(fileIndex, 0.5, 50));
 
           for (const p of [
             passlogPrefix + '-0.log',
@@ -750,7 +773,7 @@ export default defineComponent({
           const finalArgs = scaleFilter
             ? [...argList.slice(0, insertIdx), '-vf', scaleFilter, ...argList.slice(insertIdx)]
             : argList;
-          await this.runFfmpeg(finalArgs, fileObj, makeProgressCb(fileIndex, 1, 0));
+          await this.runFfmpegWithMetadataFallback(finalArgs, fileObj, makeProgressCb(fileIndex, 1, 0));
         }
       };
 
