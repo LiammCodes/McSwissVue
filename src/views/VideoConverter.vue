@@ -480,6 +480,40 @@ export default defineComponent({
       return false;
     },
 
+    async detectEncoders(): Promise<string[]> {
+      return new Promise((resolve) => {
+        const ffmpegPath = this.ffmpeg.replace('app.asar', 'app.asar.unpacked');
+        const child = this.spawn(ffmpegPath, ['-encoders', '-hide_banner'], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        let output = '';
+        child.stdout?.on('data', (d: Buffer) => { output += d.toString(); });
+        child.on('close', () => {
+          const available: string[] = [];
+          const hwCandidates = ['h264_nvenc', 'h264_videotoolbox', 'h264_qsv', 'h264_amf'];
+          for (const enc of hwCandidates) {
+            if (output.includes(enc)) available.push(enc);
+          }
+          available.push('libx264');
+          resolve(available);
+        });
+        child.on('error', () => resolve(['libx264']));
+      });
+    },
+
+    getHwEncoderArgs(encoder: string): string[] {
+      switch (encoder) {
+        case 'h264_nvenc':
+          return ['-preset', 'p4', '-rc', 'vbr'];
+        case 'h264_qsv':
+          return ['-preset', 'fast'];
+        case 'h264_amf':
+          return ['-quality', 'speed'];
+        default:
+          return [];
+      }
+    },
+
     /** Overall container bitrate (format) — matches File Properties / overall bitrate display. */
     getFormatBitrateKbps(filePath: string): Promise<number | null> {
       return new Promise((resolve) => {
@@ -503,7 +537,7 @@ export default defineComponent({
       });
     },
 
-    runFfmpeg(args: string[], fileObj: FileData, progressStart: number, progressEnd: number): Promise<void> {
+    runFfmpeg(args: string[], fileObj: FileData, onProgress: (pct: number) => void): Promise<void> {
       return new Promise((resolve, reject) => {
         const ffmpegPath = this.ffmpeg.replace('app.asar', 'app.asar.unpacked');
         const childProcess = this.spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
@@ -518,15 +552,12 @@ export default defineComponent({
           stderrBuf += text;
           if (stderrBuf.length > 12000) stderrBuf = stderrBuf.slice(-12000);
           const pct = this.parseFFmpegProgress(text, '00:00:00', fileObj.duration, pattern);
-          const raw = progressStart + (pct / 100) * (progressEnd - progressStart);
-          const value = Number.isFinite(raw) ? Math.min(100, Math.max(0, raw)) : this.progress;
-          this.progress = value;
-          if (value > this.progressDisplay) {
-            this.progressDisplay = value;
+          if (Number.isFinite(pct) && pct > 0) {
+            onProgress(Math.min(100, pct));
           }
         });
         childProcess.on('close', (code: number | null, signal: string | null) => {
-          if (code === 0) resolve();
+          if (code === 0) { onProgress(100); resolve(); }
           else if (code != null) {
             const tail = stderrBuf.trim().split(/\r?\n/).slice(-12).join('\n');
             reject(new Error(`FFmpeg exited with code ${code}${tail ? `\n${tail}` : ''}`));
@@ -538,6 +569,8 @@ export default defineComponent({
     },
 
     async convertVideos() {
+      // Reset per-run overwrite state to avoid stale "aborted" status from prior runs.
+      this.overwriteResponse = null;
       const didShowOverwriteModal = this.anyVideosExists();
       if (didShowOverwriteModal) {
         this.showBinaryModal = true;
@@ -586,11 +619,10 @@ export default defineComponent({
       this.progressDisplay = 0;
       this.conversionReport = '';
 
-      // Two-pass for accuracy. Constrain with maxrate 1.5× target and bufsize 2× target.
       const maxrateK = (Math.round(targetKbps * 1.5)) + 'k';
       const bufsizeK = (targetKbps * 2) + 'k';
 
-      const outputPaths: string[] = [];
+      const outputPaths: string[] = new Array(totalFiles).fill('');
       const evenW = this.outputWidth > 0 && this.outputHeight > 0 ? this.ensureEven(this.outputWidth) : 0;
       const evenH = this.outputWidth > 0 && this.outputHeight > 0 ? this.ensureEven(this.outputHeight) : 0;
       const scaleFilter =
@@ -602,31 +634,52 @@ export default defineComponent({
           ? ['-r', this.frameRate.trim()]
           : [];
 
-      try {
-        for (let i = 0; i < totalFiles; i++) {
-          const fileObj = this.fileObjects[i] as FileData;
-          const inputPath = getFilePath(fileObj.file);
-          let outputPath = this.path.join(
-            this.outputFilePath,
-            this.removeExtension(fileObj.file.name) + this.outputFileExtension
-          );
-          if (inputPath && this.path.resolve(inputPath) === this.path.resolve(outputPath)) {
-            // Avoid \"Output ... same as Input\" errors by suffixing the filename.
-            outputPath = this.path.join(
-              this.outputFilePath,
-              this.removeExtension(fileObj.file.name) + '-converted' + this.outputFileExtension
-            );
-          }
-          outputPaths.push(outputPath);
+      const availableEncoders = await this.detectEncoders();
+      const hwEncoders = availableEncoders.filter((e: string) => e !== 'libx264');
+      const encoderSlots = hwEncoders.length > 0 ? hwEncoders : ['libx264'];
+      console.log('[VideoConverter] Available encoders:', availableEncoders.join(', '));
+      console.log('[VideoConverter] Using encoder slots:', encoderSlots.join(', '));
 
+      const fileProgressMax: number[] = new Array(totalFiles).fill(0);
+      const updateOverallProgress = () => {
+        const overall = fileProgressMax.reduce((a: number, b: number) => a + b, 0) / totalFiles;
+        this.progress = overall;
+        if (overall > this.progressDisplay) {
+          this.progressDisplay = overall;
+        }
+      };
+
+      const makeProgressCb = (fileIndex: number, scale: number, offset: number) => {
+        return (pct: number) => {
+          const mapped = offset + pct * scale;
+          if (mapped > fileProgressMax[fileIndex]) {
+            fileProgressMax[fileIndex] = mapped;
+            updateOverallProgress();
+          }
+        };
+      };
+
+      const processFile = async (fileIndex: number, encoder: string) => {
+        const fileObj = this.fileObjects[fileIndex] as FileData;
+        const inputPath = getFilePath(fileObj.file);
+        let outputPath = this.path.join(
+          this.outputFilePath,
+          this.removeExtension(fileObj.file.name) + this.outputFileExtension
+        );
+        if (inputPath && this.path.resolve(inputPath) === this.path.resolve(outputPath)) {
+          outputPath = this.path.join(
+            this.outputFilePath,
+            this.removeExtension(fileObj.file.name) + '-converted' + this.outputFileExtension
+          );
+        }
+        outputPaths[fileIndex] = outputPath;
+        console.log(`[VideoConverter] File ${fileIndex + 1}/${totalFiles}: ${encoder} → ${this.path.basename(outputPath)}`);
+
+        if (encoder === 'libx264') {
           const baseName = this.path.basename(fileObj.file.name, this.path.extname(fileObj.file.name));
           const safeBase = baseName.replace(/\W/g, '_').slice(0, 50);
-          const passlogPrefix = this.path.join(this.os.tmpdir(), `mcswiss-2pass-${safeBase}-${i}`);
-          const pass1OutPath = this.path.join(this.os.tmpdir(), `mcswiss-pass1-${safeBase}-${i}.mkv`);
-
-          const progressFileStart = (i / totalFiles) * 100;
-          const progressFileEnd = ((i + 1) / totalFiles) * 100;
-          const progressMid = progressFileStart + (progressFileEnd - progressFileStart) * 0.5;
+          const passlogPrefix = this.path.join(this.os.tmpdir(), `mcswiss-2pass-${safeBase}-${fileIndex}`);
+          const pass1OutPath = this.path.join(this.os.tmpdir(), `mcswiss-pass1-${safeBase}-${fileIndex}.mkv`);
 
           const pass1Base = [
             '-y',
@@ -637,14 +690,16 @@ export default defineComponent({
             '-passlogfile', passlogPrefix,
             '-maxrate', maxrateK,
             '-bufsize', bufsizeK,
-            '-preset', 'medium',
+            '-preset', 'fast',
             ...fpsArgs,
             '-an',
             '-f', 'matroska',
             pass1OutPath,
           ];
-          const pass1Args = scaleFilter ? [...pass1Base.slice(0, 3), '-vf', scaleFilter, ...pass1Base.slice(3)] : pass1Base;
-          await this.runFfmpeg(pass1Args, fileObj, progressFileStart, progressMid);
+          const pass1Args = scaleFilter
+            ? [...pass1Base.slice(0, 3), '-vf', scaleFilter, ...pass1Base.slice(3)]
+            : pass1Base;
+          await this.runFfmpeg(pass1Args, fileObj, makeProgressCb(fileIndex, 0.5, 0));
 
           const pass2Base = [
             ...overwriteFlag,
@@ -655,7 +710,7 @@ export default defineComponent({
             '-passlogfile', passlogPrefix,
             '-maxrate', maxrateK,
             '-bufsize', bufsizeK,
-            '-preset', 'medium',
+            '-preset', 'fast',
             ...fpsArgs,
             '-c:a', 'aac',
             '-strict', 'experimental',
@@ -663,8 +718,10 @@ export default defineComponent({
             outputPath,
           ];
           const pass2Insert = overwriteFlag.length + 2;
-          const pass2Args = scaleFilter ? [...pass2Base.slice(0, pass2Insert), '-vf', scaleFilter, ...pass2Base.slice(pass2Insert)] : pass2Base;
-          await this.runFfmpeg(pass2Args, fileObj, progressMid, progressFileEnd);
+          const pass2Args = scaleFilter
+            ? [...pass2Base.slice(0, pass2Insert), '-vf', scaleFilter, ...pass2Base.slice(pass2Insert)]
+            : pass2Base;
+          await this.runFfmpeg(pass2Args, fileObj, makeProgressCb(fileIndex, 0.5, 50));
 
           for (const p of [
             passlogPrefix + '-0.log',
@@ -673,7 +730,56 @@ export default defineComponent({
           ]) {
             try { this.fs.unlinkSync(p); } catch (_) {}
           }
+        } else {
+          const hwArgs = this.getHwEncoderArgs(encoder);
+          const argList = [
+            ...overwriteFlag,
+            '-i', getFilePath(fileObj.file),
+            '-c:v', encoder,
+            ...hwArgs,
+            '-b:v', bitrateK,
+            '-maxrate', maxrateK,
+            '-bufsize', bufsizeK,
+            ...fpsArgs,
+            '-c:a', 'aac',
+            '-strict', 'experimental',
+            '-b:a', audioBitrateK,
+            outputPath,
+          ];
+          const insertIdx = overwriteFlag.length + 2;
+          const finalArgs = scaleFilter
+            ? [...argList.slice(0, insertIdx), '-vf', scaleFilter, ...argList.slice(insertIdx)]
+            : argList;
+          await this.runFfmpeg(finalArgs, fileObj, makeProgressCb(fileIndex, 1, 0));
         }
+      };
+
+      const processFileWithFallback = async (fileIndex: number, encoder: string) => {
+        try {
+          await processFile(fileIndex, encoder);
+        } catch (err) {
+          if (encoder !== 'libx264') {
+            console.warn(`[VideoConverter] ${encoder} failed, falling back to libx264:`, (err as Error)?.message);
+            fileProgressMax[fileIndex] = 0;
+            updateOverallProgress();
+            await processFile(fileIndex, 'libx264');
+          } else {
+            throw err;
+          }
+        }
+      };
+
+      const fileQueue: number[] = [...Array(totalFiles).keys()];
+      const processQueue = async (encoder: string) => {
+        while (fileQueue.length > 0) {
+          const idx = fileQueue.shift();
+          if (idx === undefined) break;
+          await processFileWithFallback(idx, encoder);
+        }
+      };
+
+      try {
+        await Promise.all(encoderSlots.map((enc: string) => processQueue(enc)));
 
         const overallKbpsList: (number | null)[] = [];
         for (const p of outputPaths) {
