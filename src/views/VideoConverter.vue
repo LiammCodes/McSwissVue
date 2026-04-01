@@ -570,7 +570,12 @@ export default defineComponent({
 
     isInvalidMetadataFailure(err: unknown): boolean {
       const message = ((err as Error)?.message || '').toLowerCase();
-      return message.includes('creation_time') || message.includes('invalid date');
+      return (
+        message.includes('invalid date') ||
+        message.includes('invalid creation time') ||
+        message.includes('failed to parse creation_time') ||
+        message.includes('error parsing creation_time')
+      );
     },
 
     withMetadataDisabled(args: string[]): string[] {
@@ -636,7 +641,10 @@ export default defineComponent({
       const targetKbps = parseInt(this.bitrate, 10);
       const bitrateK = this.bitrate + 'k';
       const audioBitrateK = this.audioBitrate + 'k';
-      const overwriteFlag = this.overwriteResponse === true ? ['-y'] : [];
+      // Always force non-interactive overwrite once conversion starts.
+      // We already gate start with the overwrite confirmation modal.
+      // This avoids FFmpeg prompting on fallback/retry when a partial output file exists.
+      const overwriteFlag = ['-y'];
       this.converting = true;
       this.progress = 0;
       this.progressDisplay = 0;
