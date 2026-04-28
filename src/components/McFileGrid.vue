@@ -254,6 +254,8 @@ export default defineComponent({
             width: metadata.width,
             height: metadata.height,
             frameRate: metadata.frameRate,
+            videoCodec: metadata.videoCodec,
+            videoPixFmt: metadata.videoPixFmt,
           }
           return fileObj;
         });
@@ -300,7 +302,7 @@ export default defineComponent({
       if (!filePath) {
         return Promise.reject(new Error('File has no filesystem path (required for ffprobe)'));
       }
-      return new Promise<{ bitrate: string; duration: string; size: string; width: number; height: number; frameRate: number | null }>((resolve, reject) => {
+      return new Promise<{ bitrate: string; duration: string; size: string; width: number; height: number; frameRate: number | null; videoCodec: string; videoPixFmt: string }>((resolve, reject) => {
         const result = {
           bitrate: '' as string,
           duration: '' as string,
@@ -308,12 +310,14 @@ export default defineComponent({
           width: 0 as number,
           height: 0 as number,
           frameRate: null as number | null,
+          videoCodec: '' as string,
+          videoPixFmt: '' as string,
         };
         const stdoutChunks: Buffer[] = [];
         // @ts-ignore - spawn/ffprobe from setup(); Node types not in Vue component type
         const childProcess = this.spawn(this.ffprobe.replace('app.asar', 'app.asar.unpacked'), [
           '-v', 'error',
-          '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,width,height,avg_frame_rate,r_frame_rate',
+          '-show_entries', 'format=bit_rate,duration,size:stream=codec_type,codec_name,pix_fmt,width,height,avg_frame_rate,r_frame_rate',
           '-of', 'json',
           '-i', filePath,
         ]);
@@ -349,6 +353,12 @@ export default defineComponent({
             result.size = size != null && size !== 'N/A' ? String(size) : '';
             const videoStreamForSize = streams.find((s: { codec_type?: string }) => s.codec_type === 'video');
             if (videoStreamForSize) {
+              if (typeof videoStreamForSize.codec_name === 'string') {
+                result.videoCodec = videoStreamForSize.codec_name;
+              }
+              if (typeof videoStreamForSize.pix_fmt === 'string') {
+                result.videoPixFmt = videoStreamForSize.pix_fmt;
+              }
               const w = parseInt(videoStreamForSize.width, 10);
               const h = parseInt(videoStreamForSize.height, 10);
               if (!isNaN(w) && !isNaN(h)) {

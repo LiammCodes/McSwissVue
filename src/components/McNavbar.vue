@@ -96,6 +96,7 @@ import { THEMES } from '../constants';
 const TOOL_VIEWS: View[] = [
   'Preview Generator',
   'Segment Generator',
+  'Thumbnail Generator',
   'Hyper Thumbnail Generator',
   'Transcript Generator',
   'Transcript Editor',

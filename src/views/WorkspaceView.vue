@@ -21,6 +21,7 @@
             :is="viewComponent(tab.view)"
             :key="tab.id"
             :tab-id="tab.id"
+            v-bind="thumbnailTabProps(tab.view)"
             @toggle-toast="$emit('toggle-toast', $event)"
           />
         </keep-alive>
@@ -70,6 +71,12 @@ export default defineComponent({
     viewComponent(view: View): Component {
       const c = VIEW_COMPONENTS[view];
       return c ?? PreviewGen;
+    },
+    /** Only HyperThumbnailGen reads `hyperMode`; avoid passing it to other tools. */
+    thumbnailTabProps(view: View): { hyperMode?: boolean } {
+      if (view === 'Hyper Thumbnail Generator') return { hyperMode: true };
+      if (view === 'Thumbnail Generator') return { hyperMode: false };
+      return {};
     },
   },
 });

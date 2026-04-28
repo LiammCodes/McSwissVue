@@ -17,6 +17,9 @@ export type FileData = {
   height: number,
   /** Frames per second (rounded to 3dp). Null/undefined if unknown. */
   frameRate?: number | null,
+  /** First video stream (ffprobe); used to avoid Chromium decoding unsupported codecs in Thumbnail Generator preview. */
+  videoCodec?: string,
+  videoPixFmt?: string,
 }
 
 export type SelectOption = {

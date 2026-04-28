@@ -16,9 +16,13 @@ export function getSeconds(time: string | null | undefined): number {
 
 export function parseFfmpegConvertProgress(data: string, duration: string): number {
   if (!data) return 0;
-  const pattern = /time=(\d{2}):(\d{2}):(\d{2}).(\d{2})/;
+  const pattern = /time=(\d{2}):(\d{2}):(\d{2})\.(\d+)/;
   const match = pattern.exec(data);
-  return match ? (getSeconds(match[1]) / getSeconds(duration)) * 100 : 0;
+  if (!match) return 0;
+  const outSec = getSeconds(`${match[1]}:${match[2]}:${match[3]}.${match[4]}`);
+  const durSec = getSeconds(duration);
+  if (!Number.isFinite(durSec) || durSec <= 0) return 0;
+  return (outSec / durSec) * 100;
 }
 
 /** Returns progress percent (0–100). */
