@@ -243,13 +243,20 @@ app.whenReady().then(() => {
     }
 
     function formatVttTime(seconds) {
-      const h = Math.floor(seconds / 3600);
-      const m = Math.floor((seconds % 3600) / 60);
-      const s = seconds % 60;
+      const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+      let totalMs = Math.round(safeSeconds * 1000);
+
+      const h = Math.floor(totalMs / 3600000);
+      totalMs -= h * 3600000;
+      const m = Math.floor(totalMs / 60000);
+      totalMs -= m * 60000;
+      const s = Math.floor(totalMs / 1000);
+      totalMs -= s * 1000;
+
       const hrs = String(h).padStart(2, '0');
       const min = String(m).padStart(2, '0');
-      const sec = String(Math.floor(s)).padStart(2, '0');
-      const ms = String(Math.round((s % 1) * 1000)).padStart(3, '0');
+      const sec = String(s).padStart(2, '0');
+      const ms = String(totalMs).padStart(3, '0');
       return hrs + ':' + min + ':' + sec + '.' + ms;
     }
 

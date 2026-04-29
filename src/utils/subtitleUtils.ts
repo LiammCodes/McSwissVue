@@ -8,42 +8,67 @@ export interface SubtitleCue {
   text: string;
 }
 
+function parseTimecode(timeStr: string): number {
+  const normalized = timeStr.trim().replace(',', '.');
+  const [clockPart, msPart = '0'] = normalized.split('.');
+  const pieces = clockPart.split(':').map((p) => Number(p));
+  if (pieces.some((n) => Number.isNaN(n))) return 0;
+
+  let hours = 0;
+  let minutes = 0;
+  let seconds = 0;
+  if (pieces.length === 3) {
+    [hours, minutes, seconds] = pieces;
+  } else if (pieces.length === 2) {
+    [minutes, seconds] = pieces;
+  } else {
+    return 0;
+  }
+
+  const parsedMs = Number(msPart.slice(0, 3).padEnd(3, '0'));
+  const milliseconds = Number.isNaN(parsedMs) ? 0 : parsedMs;
+  return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+}
+
 /** Parse SRT timestamp (00:00:00,000) to seconds. */
 function parseSrtTime(timeStr: string): number {
-  const [hms, ms] = timeStr.trim().replace(',', '.').split('.');
-  const [h, m, sec] = hms.split(':').map(Number);
-  const msVal = ms ? parseInt(ms.padEnd(3, '0').slice(0, 3), 10) : 0;
-  return (h || 0) * 3600 + (m || 0) * 60 + (sec || 0) + msVal / 1000;
+  return parseTimecode(timeStr);
 }
 
 /** Parse VTT timestamp (00:00:00.000) to seconds. */
 function parseVttTime(timeStr: string): number {
-  const [hms, ms] = timeStr.trim().split('.');
-  const [h, m, sec] = hms.split(':').map(Number);
-  const msVal = ms ? parseInt(ms.slice(0, 3).padEnd(3, '0'), 10) : 0;
-  return (h || 0) * 3600 + (m || 0) * 60 + (sec || 0) + msVal / 1000;
+  return parseTimecode(timeStr);
+}
+
+function normalizeSeconds(seconds: number): { h: number; m: number; s: number; ms: number } {
+  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  let totalMs = Math.round(safeSeconds * 1000);
+
+  const h = Math.floor(totalMs / 3600000);
+  totalMs -= h * 3600000;
+  const m = Math.floor(totalMs / 60000);
+  totalMs -= m * 60000;
+  const s = Math.floor(totalMs / 1000);
+  totalMs -= s * 1000;
+
+  return { h, m, s, ms: totalMs };
 }
 
 /** Format seconds to SRT timestamp 00:00:00,000 */
 export function secondsToSrtTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
+  const { h, m, s, ms } = normalizeSeconds(seconds);
   return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':') + ',' + String(ms).padStart(3, '0');
 }
 
 /** Format seconds to VTT timestamp 00:00:00.000 */
 export function secondsToVttTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
+  const { h, m, s, ms } = normalizeSeconds(seconds);
   return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':') + '.' + String(ms).padStart(3, '0');
 }
 
-const SRT_TIMECODE = /^(\d{2}:\d{2}:\d{2}[,]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,]\d{3})/;
-const VTT_TIMECODE = /^(\d{2}:\d{2}:\d{2}[.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[.]\d{3})/;
+const TIMECODE_PATTERN = '(?:\\d{1,3}:)?\\d{2}:\\d{2}[,.]\\d{1,3}';
+const SRT_TIMECODE = new RegExp(`^(${TIMECODE_PATTERN})\\s*-->\\s*(${TIMECODE_PATTERN})`);
+const VTT_TIMECODE = new RegExp(`^(${TIMECODE_PATTERN})\\s*-->\\s*(${TIMECODE_PATTERN})`);
 
 export function parseSrt(content: string): SubtitleCue[] {
   const cues: SubtitleCue[] = [];
