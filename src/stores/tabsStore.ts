@@ -6,6 +6,21 @@ export type Tab = {
   view: View;
 };
 
+export type TranscriptEditorTabState = {
+  videoPath: string;
+  videoName: string;
+  transcriptPath: string;
+  transcriptName: string;
+  currentTime: number;
+  dirty: boolean;
+  cues: Array<{
+    index: number;
+    startSeconds: number;
+    endSeconds: number;
+    text: string;
+  }>;
+};
+
 function generateTabId(): string {
   return `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -17,6 +32,7 @@ export const useTabsStore = defineStore({
     activeTabId: null as string | null,
     /** Progress 0–100 when tool is running, null when idle. Keyed by tab id. */
     tabProgress: {} as Record<string, number | null>,
+    transcriptEditorState: {} as Record<string, TranscriptEditorTabState | null>,
   }),
   getters: {
     activeTab(state): Tab | null {
@@ -38,6 +54,16 @@ export const useTabsStore = defineStore({
         this.tabProgress[tabId] = Math.min(100, Math.max(0, value));
       }
     },
+    setTranscriptEditorState(tabId: string, value: TranscriptEditorTabState | null) {
+      if (value === null) {
+        delete this.transcriptEditorState[tabId];
+      } else {
+        this.transcriptEditorState[tabId] = value;
+      }
+    },
+    getTranscriptEditorState(tabId: string): TranscriptEditorTabState | null {
+      return this.transcriptEditorState[tabId] ?? null;
+    },
     addTab(view: View): string {
       const id = generateTabId();
       const tab: Tab = { id, view };
@@ -47,6 +73,7 @@ export const useTabsStore = defineStore({
     },
     closeTab(id: string) {
       delete this.tabProgress[id];
+      delete this.transcriptEditorState[id];
       const index = this.tabs.findIndex((t) => t.id === id);
       if (index === -1) return;
       this.tabs.splice(index, 1);

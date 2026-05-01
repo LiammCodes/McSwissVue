@@ -48,7 +48,7 @@
           <!-- Video player -->
           <div class="col-span-2 flex flex-col bg-base-200 rounded-xl overflow-hidden">
             <div class="flex items-center justify-between px-2 py-1 bg-base-300">
-              <span class="text-sm font-medium truncate">{{ videoFile?.name }}</span>
+              <span class="text-sm font-medium truncate">{{ videoFile?.name || videoName }}</span>
               <button
                 type="button"
                 class="btn btn-ghost btn-xs"
@@ -72,7 +72,7 @@
           <!-- Cues list -->
           <div class="col-span-1 flex flex-col bg-base-200 rounded-xl overflow-hidden min-w-0">
             <div class="flex items-center justify-between px-2 py-1 bg-base-300 shrink-0">
-              <span class="text-sm font-medium truncate">{{ transcriptFile?.name }}</span>
+              <span class="text-sm font-medium truncate">{{ transcriptFile?.name || transcriptName }}</span>
               <button
                 type="button"
                 class="btn btn-primary btn-xs"
@@ -131,6 +131,7 @@ import {
   type SubtitleCue,
 } from '../utils/subtitleUtils';
 import { getFilePath } from '../utils/electronFilePath';
+import { useTabsStore } from '../stores/tabsStore';
 
 const VIDEO_EXT = ['.mp4', '.mov', '.m4v'];
 const TRANSCRIPT_EXT = ['.srt', '.vtt'];
@@ -156,13 +157,18 @@ export default defineComponent({
   },
   setup() {
     const fs = require('fs');
-    return { fs };
+    const tabsStore = useTabsStore();
+    const pathToFileURL = require('url').pathToFileURL as (p: string) => URL;
+    return { fs, tabsStore, pathToFileURL };
   },
   data() {
     return {
       videoFile: null as File | null,
+      videoPath: '' as string,
+      videoName: '' as string,
       transcriptFile: null as File | null,
       transcriptPath: '' as string,
+      transcriptName: '' as string,
       cues: [] as SubtitleCue[],
       currentTime: 0,
       saving: false,
@@ -174,7 +180,7 @@ export default defineComponent({
   },
   computed: {
     showDropZone(): boolean {
-      return !this.videoFile || !this.transcriptFile;
+      return !this.videoObjectUrl || !this.transcriptPath;
     },
     currentCueIndex(): number {
       const t = this.currentTime;
@@ -193,12 +199,63 @@ export default defineComponent({
       }
     },
   },
+  mounted() {
+    this.restoreState();
+  },
   beforeUnmount() {
+    this.persistState();
     if (this.videoObjectUrl) {
       URL.revokeObjectURL(this.videoObjectUrl);
     }
   },
   methods: {
+    toFileUrl(path: string): string {
+      if (!path) return '';
+      try {
+        return this.pathToFileURL(path).toString();
+      } catch {
+        return '';
+      }
+    },
+    persistState() {
+      if (!this.tabId) return;
+      if (!this.videoPath || !this.transcriptPath || this.cues.length === 0) {
+        this.tabsStore.setTranscriptEditorState(this.tabId, null);
+        return;
+      }
+      this.tabsStore.setTranscriptEditorState(this.tabId, {
+        videoPath: this.videoPath,
+        videoName: this.videoName,
+        transcriptPath: this.transcriptPath,
+        transcriptName: this.transcriptName,
+        currentTime: this.currentTime,
+        dirty: this.dirty,
+        cues: this.cues.map((cue, index) => ({
+          index: cue.index ?? index + 1,
+          startSeconds: cue.startSeconds,
+          endSeconds: cue.endSeconds,
+          text: cue.text,
+        })),
+      });
+    },
+    restoreState() {
+      if (!this.tabId) return;
+      const state = this.tabsStore.getTranscriptEditorState(this.tabId);
+      if (!state) return;
+      this.videoPath = state.videoPath;
+      this.videoName = state.videoName;
+      this.transcriptPath = state.transcriptPath;
+      this.transcriptName = state.transcriptName;
+      this.currentTime = state.currentTime;
+      this.dirty = state.dirty;
+      this.cues = state.cues.map((cue, idx) => ({
+        index: cue.index ?? idx + 1,
+        startSeconds: cue.startSeconds,
+        endSeconds: cue.endSeconds,
+        text: cue.text,
+      }));
+      this.videoObjectUrl = this.toFileUrl(this.videoPath);
+    },
     handleDragOver(e: DragEvent) {
       e.preventDefault();
     },
@@ -225,12 +282,16 @@ export default defineComponent({
       }
       if (this.videoObjectUrl) URL.revokeObjectURL(this.videoObjectUrl);
       this.videoFile = video;
+      this.videoPath = getFilePath(video) || '';
+      this.videoName = video.name;
       this.transcriptFile = transcript;
       this.transcriptPath = getFilePath(transcript) || '';
+      this.transcriptName = transcript.name;
       this.videoObjectUrl = URL.createObjectURL(video);
       this.loadTranscript();
       this.dirty = false;
       this.saveMessage = '';
+      this.persistState();
     },
     clearFiles() {
       if (this.videoObjectUrl) {
@@ -238,34 +299,56 @@ export default defineComponent({
         this.videoObjectUrl = '';
       }
       this.videoFile = null;
+      this.videoPath = '';
+      this.videoName = '';
       this.transcriptFile = null;
       this.transcriptPath = '';
+      this.transcriptName = '';
       this.cues = [];
       this.saveMessage = '';
       this.dirty = false;
+      this.currentTime = 0;
+      this.persistState();
     },
     loadTranscript() {
-      if (!this.transcriptFile) return;
+      if (!this.transcriptFile) {
+        if (!this.transcriptPath) return;
+        const text = this.fs.readFileSync(this.transcriptPath, 'utf-8');
+        this.cues = parseSubtitle(text, this.transcriptName || this.transcriptPath);
+        this.persistState();
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const text = (reader.result as string) || '';
         this.cues = parseSubtitle(text, this.transcriptFile!.name);
+        this.persistState();
       };
       reader.readAsText(this.transcriptFile, 'utf-8');
     },
     onTimeUpdate() {
       const video = this.$refs.videoRef as HTMLVideoElement;
-      if (video) this.currentTime = video.currentTime;
+      if (video) {
+        this.currentTime = video.currentTime;
+        this.persistState();
+      }
     },
     onLoadedMetadata() {
       const video = this.$refs.videoRef as HTMLVideoElement;
-      if (video) this.currentTime = video.currentTime;
+      if (video) {
+        if (this.currentTime > 0) {
+          video.currentTime = this.currentTime;
+        } else {
+          this.currentTime = video.currentTime;
+        }
+      }
     },
     seekTo(seconds: number) {
       const video = this.$refs.videoRef as HTMLVideoElement;
       if (video) {
         video.currentTime = seconds;
         this.currentTime = seconds;
+        this.persistState();
       }
     },
     formatTime(seconds: number): string {
@@ -278,10 +361,11 @@ export default defineComponent({
     markDirty() {
       this.dirty = true;
       this.saveMessage = '';
+      this.persistState();
     },
     async saveTranscript() {
-      if (!this.transcriptFile || this.cues.length === 0) return;
-      const path = getFilePath(this.transcriptFile);
+      if (this.cues.length === 0) return;
+      const path = this.transcriptPath || (this.transcriptFile ? getFilePath(this.transcriptFile) : '');
       if (!path) {
         this.saveMessage = 'Cannot save: transcript file path unknown.';
         this.saveError = true;
@@ -291,11 +375,12 @@ export default defineComponent({
       this.saveMessage = '';
       this.saveError = false;
       try {
-        const out = serializeSubtitle(this.cues, this.transcriptFile.name);
+        const out = serializeSubtitle(this.cues, this.transcriptName || this.transcriptFile?.name || path);
         this.fs.writeFileSync(path, out, 'utf-8');
         this.saveMessage = 'Saved.';
         this.saveError = false;
         this.dirty = false;
+        this.persistState();
       } catch (e: any) {
         this.saveMessage = e?.message || 'Save failed.';
         this.saveError = true;
