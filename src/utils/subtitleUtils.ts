@@ -8,7 +8,8 @@ export interface SubtitleCue {
   text: string;
 }
 
-function parseTimecode(timeStr: string): number {
+/** Parse a subtitle timecode (HH:MM:SS.mmm / HH:MM:SS,mmm) to seconds. */
+export function parseSubtitleTime(timeStr: string): number {
   const normalized = timeStr.trim().replace(',', '.');
   const [clockPart, msPart = '0'] = normalized.split('.');
   const pieces = clockPart.split(':').map((p) => Number(p));
@@ -28,6 +29,10 @@ function parseTimecode(timeStr: string): number {
   const parsedMs = Number(msPart.slice(0, 3).padEnd(3, '0'));
   const milliseconds = Number.isNaN(parsedMs) ? 0 : parsedMs;
   return hours * 3600 + minutes * 60 + seconds + milliseconds / 1000;
+}
+
+function parseTimecode(timeStr: string): number {
+  return parseSubtitleTime(timeStr);
 }
 
 /** Parse SRT timestamp (00:00:00,000) to seconds. */

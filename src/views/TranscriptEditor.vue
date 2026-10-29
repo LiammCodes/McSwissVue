@@ -71,11 +71,11 @@
 
           <!-- Cues list -->
           <div class="col-span-1 flex flex-col bg-base-200 rounded-xl overflow-hidden min-w-0">
-            <div class="flex items-center justify-between px-2 py-1 bg-base-300 shrink-0">
-              <span class="text-sm font-medium truncate">{{ transcriptFile?.name || transcriptName }}</span>
+            <div class="flex items-center justify-between gap-2 px-2 py-1 bg-base-300 shrink-0">
+              <span class="text-sm font-medium truncate min-w-0">{{ transcriptFile?.name || transcriptName }}</span>
               <button
                 type="button"
-                class="btn btn-primary btn-xs"
+                class="btn btn-primary btn-xs shrink-0"
                 :disabled="saving"
                 @click="saveTranscript"
               >
@@ -91,16 +91,36 @@
                 :class="currentCueIndex === idx ? 'border-primary bg-primary/10' : 'border-base-300 bg-base-100'"
               >
                 <div
-                  class="flex items-center gap-2 px-2 py-1 text-xs text-base-content/70 border-b border-base-200"
+                  class="flex items-center gap-1 px-2 py-1 text-xs text-base-content/70 border-b border-base-200"
                 >
-                  <span>{{ formatTime(cue.startSeconds) }} → {{ formatTime(cue.endSeconds) }}</span>
+                  <input
+                    type="text"
+                    class="input input-xs flex-1 min-w-0 px-1 font-mono text-center"
+                    title="Start time (HH:MM:SS.mmm)"
+                    :value="timeInputDisplay(idx, 'start')"
+                    @focus="beginTimeEdit(idx, 'start')"
+                    @input="onTimeEditInput($event)"
+                    @blur="commitTimeEdit"
+                    @keydown.enter.prevent="blurTimeInput($event)"
+                  />
+                  <span class="opacity-60 shrink-0">→</span>
+                  <input
+                    type="text"
+                    class="input input-xs flex-1 min-w-0 px-1 font-mono text-center"
+                    title="End time (HH:MM:SS.mmm)"
+                    :value="timeInputDisplay(idx, 'end')"
+                    @focus="beginTimeEdit(idx, 'end')"
+                    @input="onTimeEditInput($event)"
+                    @blur="commitTimeEdit"
+                    @keydown.enter.prevent="blurTimeInput($event)"
+                  />
                   <button
                     type="button"
-                    class="btn btn-ghost btn-xs ml-auto"
-                    title="Seek to cue"
-                    @click="seekTo(cue.startSeconds)"
+                    class="btn btn-ghost btn-xs shrink-0 hover:btn-error"
+                    title="Remove this cue"
+                    @click="removeCue(idx)"
                   >
-                    Play
+                    ×
                   </button>
                 </div>
                 <textarea
@@ -109,6 +129,26 @@
                   placeholder="Subtitle text"
                   @input="markDirty"
                 />
+                <div
+                  class="flex items-center gap-1 px-2 py-1 border-t border-base-200"
+                >
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs"
+                    title="Seek to cue"
+                    @click="seekTo(cue.startSeconds)"
+                  >
+                    Play
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs ml-auto"
+                    title="Insert a cue after this one (uses the gap to the next cue)"
+                    @click="addCueAfter(idx)"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -127,11 +167,15 @@
 import { defineComponent } from 'vue';
 import {
   parseSubtitle,
+  parseSubtitleTime,
   serializeSubtitle,
   type SubtitleCue,
 } from '../utils/subtitleUtils';
 import { getFilePath } from '../utils/electronFilePath';
 import { useTabsStore } from '../stores/tabsStore';
+
+type TimeEditField = 'start' | 'end';
+type TimeEditState = { idx: number; field: TimeEditField; value: string };
 
 const VIDEO_EXT = ['.mp4', '.mov', '.m4v'];
 const TRANSCRIPT_EXT = ['.srt', '.vtt'];
@@ -176,6 +220,7 @@ export default defineComponent({
       saveError: false,
       dirty: false,
       videoObjectUrl: '' as string,
+      editingTime: null as TimeEditState | null,
     };
   },
   computed: {
@@ -357,6 +402,114 @@ export default defineComponent({
       const s = Math.floor(seconds % 60);
       const ms = Math.round((seconds % 1) * 1000);
       return [h, m, s].map((x) => String(x).padStart(2, '0')).join(':') + '.' + String(ms).padStart(3, '0');
+    },
+    timeInputDisplay(idx: number, field: TimeEditField): string {
+      if (this.editingTime?.idx === idx && this.editingTime.field === field) {
+        return this.editingTime.value;
+      }
+      const cue = this.cues[idx];
+      if (!cue) return '00:00:00.000';
+      return this.formatTime(field === 'start' ? cue.startSeconds : cue.endSeconds);
+    },
+    beginTimeEdit(idx: number, field: TimeEditField) {
+      const cue = this.cues[idx];
+      if (!cue) return;
+      this.editingTime = {
+        idx,
+        field,
+        value: this.formatTime(field === 'start' ? cue.startSeconds : cue.endSeconds),
+      };
+    },
+    onTimeEditInput(e: Event) {
+      if (!this.editingTime) return;
+      this.editingTime = {
+        ...this.editingTime,
+        value: (e.target as HTMLInputElement).value,
+      };
+    },
+    blurTimeInput(e: Event) {
+      (e.target as HTMLInputElement).blur();
+    },
+    commitTimeEdit() {
+      if (!this.editingTime) return;
+      const { idx, field, value } = this.editingTime;
+      this.editingTime = null;
+      const cue = this.cues[idx];
+      if (!cue) return;
+
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      if (!/^(?:\d{1,3}:)?\d{1,2}:\d{1,2}(?:[,.]\d{1,3})?$/.test(trimmed)) {
+        this.$emit('toggle-toast', {
+          message: 'Invalid timestamp. Use HH:MM:SS.mmm',
+          kind: 'alert-error',
+          timeout: 3000,
+        });
+        return;
+      }
+      const seconds = parseSubtitleTime(trimmed);
+      if (!Number.isFinite(seconds) || seconds < 0) {
+        this.$emit('toggle-toast', {
+          message: 'Invalid timestamp. Use HH:MM:SS.mmm',
+          kind: 'alert-error',
+          timeout: 3000,
+        });
+        return;
+      }
+
+      if (field === 'start') {
+        cue.startSeconds = seconds;
+        if (cue.endSeconds <= cue.startSeconds) {
+          cue.endSeconds = cue.startSeconds + 0.5;
+        }
+      } else {
+        cue.endSeconds = Math.max(seconds, cue.startSeconds + 0.001);
+      }
+      this.markDirty();
+    },
+    reindexCues() {
+      this.cues.forEach((cue, i) => {
+        cue.index = i + 1;
+      });
+    },
+    insertCueAt(insertAt: number, startSeconds: number, endSeconds: number) {
+      const start = Math.max(0, startSeconds);
+      const end = endSeconds > start ? endSeconds : start + 2;
+      this.cues.splice(insertAt, 0, {
+        index: insertAt + 1,
+        startSeconds: start,
+        endSeconds: end,
+        text: '',
+      });
+      this.reindexCues();
+      this.markDirty();
+      this.$nextTick(() => {
+        const list = this.$refs.cueList as HTMLElement | undefined;
+        const el = list?.querySelector(`[data-cue-index="${insertAt}"]`);
+        el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    },
+    addCueAfter(idx: number) {
+      const prev = this.cues[idx];
+      if (!prev) return;
+      const next = this.cues[idx + 1];
+      let start = prev.endSeconds;
+      let end = next ? next.startSeconds : start + 2;
+      if (end - start < 0.1) {
+        end = start + 2;
+      }
+      this.insertCueAt(idx + 1, start, end);
+    },
+    removeCue(idx: number) {
+      if (idx < 0 || idx >= this.cues.length) return;
+      if (this.editingTime?.idx === idx) {
+        this.editingTime = null;
+      } else if (this.editingTime && this.editingTime.idx > idx) {
+        this.editingTime = { ...this.editingTime, idx: this.editingTime.idx - 1 };
+      }
+      this.cues.splice(idx, 1);
+      this.reindexCues();
+      this.markDirty();
     },
     markDirty() {
       this.dirty = true;
