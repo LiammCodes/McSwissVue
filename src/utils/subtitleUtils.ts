@@ -8,6 +8,20 @@ export interface SubtitleCue {
   text: string;
 }
 
+/**
+ * Strip markup that should not appear in plain transcript cue text:
+ * Whisper special tokens (<|en|>, <|nospeech|>), WebVTT tags (<v>, <c>, <b>),
+ * karaoke timestamps (<00:00:01.000>), and other HTML-like tags.
+ */
+export function sanitizeCueText(text: string): string {
+  return String(text ?? '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 /** Parse a subtitle timecode (HH:MM:SS.mmm / HH:MM:SS,mmm) to seconds. */
 export function parseSubtitleTime(timeStr: string): number {
   const normalized = timeStr.trim().replace(',', '.');
@@ -92,10 +106,11 @@ export function parseSrt(content: string): SubtitleCue[] {
     if (!match) continue;
     const startSeconds = parseSrtTime(match[1]);
     const endSeconds = parseSrtTime(match[2]);
-    const text = lines
-      .slice(lines.indexOf(timeLine) + 1)
-      .join('\n')
-      .trim();
+    const text = sanitizeCueText(
+      lines
+        .slice(lines.indexOf(timeLine) + 1)
+        .join('\n')
+    );
     cues.push({
       index: cues.length + 1,
       startSeconds,
@@ -120,10 +135,11 @@ export function parseVtt(content: string): SubtitleCue[] {
     if (!match) continue;
     const startSeconds = parseVttTime(match[1]);
     const endSeconds = parseVttTime(match[2]);
-    const text = lines
-      .slice(lines.indexOf(timeLine) + 1)
-      .join('\n')
-      .trim();
+    const text = sanitizeCueText(
+      lines
+        .slice(lines.indexOf(timeLine) + 1)
+        .join('\n')
+    );
     cues.push({
       index: cues.length + 1,
       startSeconds,
@@ -146,7 +162,7 @@ export function serializeSrt(cues: SubtitleCue[]): string {
   return cues
     .map(
       (c) =>
-        `${c.index}\n${secondsToSrtTime(c.startSeconds)} --> ${secondsToSrtTime(c.endSeconds)}\n${c.text}\n`
+        `${c.index}\n${secondsToSrtTime(c.startSeconds)} --> ${secondsToSrtTime(c.endSeconds)}\n${sanitizeCueText(c.text)}\n`
     )
     .join('\n');
 }
@@ -156,7 +172,7 @@ export function serializeVtt(cues: SubtitleCue[]): string {
   const body = cues
     .map(
       (c) =>
-        `${secondsToVttTime(c.startSeconds)} --> ${secondsToVttTime(c.endSeconds)}\n${c.text}\n`
+        `${secondsToVttTime(c.startSeconds)} --> ${secondsToVttTime(c.endSeconds)}\n${sanitizeCueText(c.text)}\n`
     )
     .join('\n');
   return header + body;

@@ -260,21 +260,39 @@ app.whenReady().then(() => {
       return hrs + ':' + min + ':' + sec + '.' + ms;
     }
 
+    function sanitizeCueText(text) {
+      return String(text ?? '')
+        .replace(/<[^>]+>/g, '')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim();
+    }
+
     function transcriptionToVtt(output) {
       const lines = ['WEBVTT', ''];
       if (output.chunks && output.chunks.length > 0) {
-        output.chunks.forEach((chunk, i) => {
-          const [start, end] = chunk.timestamp;
-          lines.push(String(i + 1));
-          lines.push(formatVttTime(start) + ' --> ' + formatVttTime(end));
-          lines.push(chunk.text.trim());
+        let cueIndex = 0;
+        output.chunks.forEach((chunk) => {
+          const text = sanitizeCueText(chunk.text);
+          if (!text) return;
+          const [start, end] = chunk.timestamp || [];
+          if (!Number.isFinite(start)) return;
+          const endSeconds = Number.isFinite(end) && end > start ? end : start + 0.5;
+          cueIndex += 1;
+          lines.push(String(cueIndex));
+          lines.push(formatVttTime(start) + ' --> ' + formatVttTime(endSeconds));
+          lines.push(text);
           lines.push('');
         });
       } else {
-        lines.push('1');
-        lines.push('00:00:00.000 --> 99:59:59.999');
-        lines.push((output.text || '').trim());
-        lines.push('');
+        const text = sanitizeCueText(output.text || '');
+        if (text) {
+          lines.push('1');
+          lines.push('00:00:00.000 --> 99:59:59.999');
+          lines.push(text);
+          lines.push('');
+        }
       }
       return lines.join('\n');
     }
